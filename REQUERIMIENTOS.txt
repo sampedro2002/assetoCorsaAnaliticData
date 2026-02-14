@@ -1,0 +1,50 @@
+# REQUERIMIENTOS DEL SISTEMA DE TELEMETRÍA
+
+## 1. Captura de Datos en Tiempo Real
+- Conexión vía Memoria Compartida de Assetto Corsa.
+- Frecuencia de muestreo: 10Hz (100ms).
+- Datos capturados: 
+  - Velocidad (km/h)
+  - RPM
+  - Marcha actual
+  - G-Forces (Lateral y Longitudinal)
+  - Inputs (Acelerador, Freno, Embrague, Dirección)
+  - Tiempos de Vuelta (Actual, Última, Mejor)
+  - Temperaturas y Presiones (Neumáticos, Frenos)
+
+## 2. Análisis Post-Carrera
+- Generación automática de reporte al finalizar la sesión.
+- Detección de Vueltas Inválidas (cortes de pista) pero inclusión en gráficos.
+- **Detección Inteligente de Secciones**:
+  - Identificación automática de Curvas y Rectas.
+  - **Fusión de Secciones**: Unifica fragmentos interrumpidos (ej. bombear el volante) en una sola curva lógica si la dirección se mantiene.
+  - Filtrado de ruido para movimientos menores del volante en rectas.
+
+## 3. Visualización y Gráficos
+- **Dashboard en Tiempo Real**:
+  - Indicadores visuales de RPM, Marcha y Velocidad.
+  - Mapa del circuito (track map) generado dinámicamente.
+- **Gráficos de Análisis**:
+  - **Comparación de Velocidad**:
+    - Línea Cyan: Mejor Vuelta.
+    - Línea Rosa: Última Vuelta (incluso si fue inválida).
+    - Alineación perfecta por distancia (0-100%) mediante re-muestreo.
+  - **Análisis de Inputs**:
+    - Muestra Acelerador y Freno de la **Última Vuelta** para analizar errores recientes.
+    - Resolución de 200 puntos por vuelta.
+
+## 4. Almacenamiento y Persistencia
+- Base de datos SQLite local (`assetto_corsa.db`).
+- Guardado automático de todas las sesiones y vueltas.
+- Historial completo de telemetría para análisis futuro.
+
+## 5. Interfaz de Usuario
+- **Web App**:
+  - Diseño responsivo y moderno (Tema Oscuro).
+  - Funcionamiento fluido mediante WebSocket.
+  - Compatible con cualquier navegador moderno.
+
+## 6. Requisitos Técnicos
+- Python 3.10+
+- Librerías Principales: `fastapi`, `uvicorn`, `websockets`, `numpy`.
+- Assetto Corsa (Steam).

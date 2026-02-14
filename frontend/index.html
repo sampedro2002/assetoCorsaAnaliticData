@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assetto Corsa Telemetry</title>
+    <link rel="stylesheet" href="styles.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" id="themeToggle">
+        <span class="theme-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="currentColor"
+                    opacity="0.8" />
+                <path
+                    d="M12 2V4M12 20V22M22 12H20M4 12H2M19.07 4.93L17.66 6.34M6.34 17.66L4.93 19.07M19.07 19.07L17.66 17.66M6.34 6.34L4.93 4.93"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+            </svg>
+        </span>
+    </div>
+
+    <!-- Disconnect Overlay -->
+    <div id="disconnectOverlay" class="disconnect-overlay hidden">
+        <div class="disconnect-content">
+            <div class="disconnect-icon">⚠️</div>
+            <h2>Assetto Corsa Desconectado</h2>
+            <p>No hay datos disponibles</p>
+            <div class="disconnect-status">
+                <span class="status-dot pulsing"></span>
+                <span>Esperando conexión...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Dashboard View -->
+    <div id="liveView" class="view active">
+        <header class="header">
+            <h1 class="title">TELEMETRÍA ASSETTO CORSA</h1>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Conectando...</span>
+            </div>
+            <button class="analysis-button" id="analysisButton">
+                📊 Ver Análisis
+            </button>
+            <div class="session-info" id="sessionInfo">
+                <span class="session-mode" id="sessionMode">Practice</span>
+                <span id="trackName"></span>
+                <span id="carName"></span>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <!-- Left Column -->
+            <div class="column left-column">
+                <!-- Speed Gauge -->
+                <div class="panel speed-panel">
+                    <div class="gauge-container">
+                        <canvas id="speedGauge"></canvas>
+                        <div class="gauge-value">
+                            <span id="speedValue">0</span>
+                            <span class="unit">KM/H</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RPM Gauge -->
+                <div class="panel rpm-panel">
+                    <div class="gauge-container">
+                        <canvas id="rpmGauge"></canvas>
+                        <div class="gauge-value">
+                            <span id="rpmValue">0</span>
+                            <span class="unit">RPM</span>
+                        </div>
+                        <div class="gear-display" id="gearDisplay">N</div>
+                    </div>
+                </div>
+
+                <!-- G-Force Meter -->
+                <div class="panel gforce-panel">
+                    <h3>FUERZAS G</h3>
+                    <div class="gforce-grid">
+                        <div class="gforce-item">
+                            <span class="label">Lateral</span>
+                            <span class="value" id="gforceLat">0.00</span>
+                        </div>
+                        <div class="gforce-item">
+                            <span class="label">Longitudinal</span>
+                            <span class="value" id="gforceLong">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Column -->
+            <div class="column center-column">
+                <!-- Lap Times -->
+                <div class="panel lap-times-panel">
+                    <h3>TIEMPOS DE VUELTA</h3>
+                    <div class="lap-time-grid">
+                        <div class="lap-time-item">
+                            <span class="label">Actual</span>
+                            <span class="time" id="currentLapTime">--:--.---</span>
+                        </div>
+                        <div class="lap-time-item">
+                            <span class="label">Última</span>
+                            <span class="time" id="lastLapTime">--:--.---</span>
+                        </div>
+                        <div class="lap-time-item best">
+                            <span class="label">Mejor</span>
+                            <span class="time" id="bestLapTime">--:--.---</span>
+                        </div>
+                        <div class="lap-time-item">
+                            <span class="label">Delta</span>
+                            <span class="time delta" id="deltaTime">+0.000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inputs Display -->
+                <div class="panel inputs-panel">
+                    <h3>CONTROLES</h3>
+                    <div class="input-bars">
+                        <div class="input-bar">
+                            <span class="label">Acelerador</span>
+                            <div class="bar-container">
+                                <div class="bar throttle-bar" id="throttleBar"></div>
+                            </div>
+                            <span class="value" id="throttleValue">0%</span>
+                        </div>
+                        <div class="input-bar">
+                            <span class="label">Freno</span>
+                            <div class="bar-container">
+                                <div class="bar brake-bar" id="brakeBar"></div>
+                            </div>
+                            <span class="value" id="brakeValue">0%</span>
+                        </div>
+                        <div class="input-bar">
+                            <span class="label">Dirección</span>
+                            <div class="bar-container steering-container">
+                                <div class="bar steering-bar" id="steeringBar"></div>
+                            </div>
+                            <span class="value" id="steeringValue">0°</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fuel -->
+                <div class="panel fuel-panel">
+                    <h3>COMBUSTIBLE</h3>
+                    <div class="fuel-container">
+                        <div class="fuel-bar-container">
+                            <div class="fuel-bar" id="fuelBar"></div>
+                        </div>
+                        <span class="fuel-value" id="fuelValue">0.0 L</span>
+                    </div>
+                </div>
+
+                <!-- Lap Counter -->
+                <div class="panel lap-counter-panel">
+                    <h3>🏁 VUELTAS COMPLETADAS</h3>
+                    <div class="lap-counter-container">
+                        <div class="lap-number" id="currentLapNumber">0</div>
+                        <div class="lap-label">Completadas</div>
+                    </div>
+                </div>
+
+                <!-- Volante (Steering Wheel) Telemetry -->
+                <div class="panel volante-panel">
+                    <h3>🎮 VOLANTE</h3>
+                    <div class="volante-grid">
+                        <div class="volante-item">
+                            <span class="label">Ángulo:</span>
+                            <span class="value" id="steeringAngle">0.0°</span>
+                        </div>
+                        <div class="volante-item">
+                            <span class="label">Vel. Angular:</span>
+                            <span class="value" id="angularVelocity">0.0°/s</span>
+                        </div>
+                        <div class="volante-item">
+                            <span class="label">Acel. Angular:</span>
+                            <span class="value" id="angularAcceleration">0.0°/s²</span>
+                        </div>
+                        <div class="volante-item">
+                            <span class="label">Freno:</span>
+                            <span class="value" id="brakePct">0.0%</span>
+                        </div>
+                        <div class="volante-item">
+                            <span class="label">Acelerador:</span>
+                            <span class="value" id="throttlePct">0.0%</span>
+                        </div>
+                        <div class="volante-item">
+                            <span class="label">Frecuencia:</span>
+                            <span class="value" id="sampleFreq">0 Hz</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="column right-column">
+                <!-- Tire Temperatures -->
+                <div class="panel tire-temp-panel">
+                    <h3>TEMPERATURA NEUMÁTICOS (°C)</h3>
+                    <div class="tire-grid">
+                        <div class="tire-item" id="tireFL">
+                            <span class="tire-label">DI</span>
+                            <span class="tire-temp">--</span>
+                        </div>
+                        <div class="tire-item" id="tireFR">
+                            <span class="tire-label">DD</span>
+                            <span class="tire-temp">--</span>
+                        </div>
+                        <div class="tire-item" id="tireRL">
+                            <span class="tire-label">TI</span>
+                            <span class="tire-temp">--</span>
+                        </div>
+                        <div class="tire-item" id="tireRR">
+                            <span class="tire-label">TD</span>
+                            <span class="tire-temp">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tire Pressures -->
+                <div class="panel tire-pressure-panel">
+                    <h3>PRESIÓN NEUMÁTICOS (PSI)</h3>
+                    <div class="tire-grid">
+                        <div class="tire-item">
+                            <span class="tire-label">DI</span>
+                            <span class="tire-pressure" id="pressureFL">--</span>
+                        </div>
+                        <div class="tire-item">
+                            <span class="tire-label">DD</span>
+                            <span class="tire-pressure" id="pressureFR">--</span>
+                        </div>
+                        <div class="tire-item">
+                            <span class="tire-label">TI</span>
+                            <span class="tire-pressure" id="pressureRL">--</span>
+                        </div>
+                        <div class="tire-item">
+                            <span class="tire-label">TD</span>
+                            <span class="tire-pressure" id="pressureRR">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brake Temperatures -->
+                <div class="panel brake-temp-panel">
+                    <h3>TEMPERATURA FRENOS (°C)</h3>
+                    <div class="tire-grid">
+                        <div class="tire-item" id="brakeFL">
+                            <span class="tire-label">DI</span>
+                            <span class="brake-temp">--</span>
+                        </div>
+                        <div class="tire-item" id="brakeFR">
+                            <span class="tire-label">DD</span>
+                            <span class="brake-temp">--</span>
+                        </div>
+                        <div class="tire-item" id="brakeRL">
+                            <span class="tire-label">TI</span>
+                            <span class="brake-temp">--</span>
+                        </div>
+                        <div class="tire-item" id="brakeRR">
+                            <span class="tire-label">TD</span>
+                            <span class="brake-temp">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- Post-Race Analysis View -->
+    <div id="analysisView" class="view">
+        <header class="header">
+            <h1 class="title">ANÁLISIS POST-CARRERA</h1>
+            <button class="back-button" id="backButton">← Volver a En Vivo</button>
+        </header>
+
+        <div class="analysis-container">
+            <!-- Analysis Status Alert (for errors/warnings) -->
+            <div id="analysisAlert" class="alert hidden">
+                <span class="alert-icon">⚠️</span>
+                <span class="alert-message" id="analysisAlertMessage">--</span>
+            </div>
+
+            <!-- Session Summary -->
+            <div class="panel session-summary">
+                <h2>RESUMEN DE SESIÓN</h2>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="label">Tipo de Sesión</span>
+                        <span class="value session-type-badge" id="summarySessionType">--</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Circuito</span>
+                        <span class="value" id="summaryTrack">--</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Coche</span>
+                        <span class="value" id="summaryCar">--</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Vueltas Totales</span>
+                        <span class="value" id="summaryLaps">--</span>
+                    </div>
+                    <div class="summary-item highlight">
+                        <span class="label">Mejor Vuelta</span>
+                        <span class="value" id="summaryBestLap">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="panel recommendations-panel">
+                <h2>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                        style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                        <path
+                            d="M12 2C10.8954 2 10 2.89543 10 4V5C10 5.55228 9.55228 6 9 6C8.44772 6 8 6.44772 8 7C8 7.55228 7.55228 8 7 8H6C4.89543 8 4 8.89543 4 10C4 11.1046 4.89543 12 6 12H7C7.55228 12 8 12.4477 8 13C8 13.5523 8.44772 14 9 14C9.55228 14 10 14.4477 10 15V16C10 17.1046 10.8954 18 12 18C13.1046 18 14 17.1046 14 16V15C14 14.4477 14.4477 14 15 14C15.5523 14 16 13.5523 16 13C16 12.4477 16.4477 12 17 12H18C19.1046 12 20 11.1046 20 10C20 8.89543 19.1046 8 18 8H17C16.4477 8 16 7.55228 16 7C16 6.44772 15.5523 6 15 6C14.4477 6 14 5.55228 14 5V4C14 2.89543 13.1046 2 12 2Z"
+                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                            opacity="0.8" />
+                        <circle cx="12" cy="10" r="1.5" fill="currentColor" opacity="0.9" />
+                        <path d="M9 10L7 12M15 10L17 12M12 13V15" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" opacity="0.7" />
+                        <circle cx="12" cy="19" r="1" fill="currentColor" opacity="0.6" />
+                        <circle cx="8" cy="17" r="0.8" fill="currentColor" opacity="0.5" />
+                        <circle cx="16" cy="17" r="0.8" fill="currentColor" opacity="0.5" />
+                    </svg>
+                    RECOMENDACIONES IA
+                </h2>
+                <div id="recommendationsList" class="recommendations-list">
+                    <p class="loading">Analizando tu rendimiento...</p>
+                </div>
+            </div>
+
+            <!-- Lap Times Table -->
+            <div class="panel laps-table-panel">
+                <h2>TIEMPOS DE VUELTA</h2>
+                <div class="table-container">
+                    <table id="lapsTable">
+                        <thead>
+                            <tr>
+                                <th>Vuelta</th>
+                                <th>Tiempo</th>
+                                <th>Sector 1</th>
+                                <th>Sector 2</th>
+                                <th>Sector 3</th>
+                                <th>Válida</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lapsTableBody">
+                            <tr>
+                                <td colspan="6">Sin datos</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Track Map -->
+            <div class="panel track-map-panel">
+                <h2>🗺️ MAPA DEL CIRCUITO</h2>
+                <div class="track-map-container">
+                    <img id="trackMapImage" src="" alt="Mapa del circuito"
+                        style="display: none; max-width: 100%; height: auto; border-radius: 12px; filter: drop-shadow(0 0 20px var(--accent-cyan));">
+                    <p id="trackMapLoading" class="loading">Cargando mapa del circuito...</p>
+                </div>
+            </div>
+
+
+            <!-- Section Analysis -->
+            <div class="panel section-analysis-panel">
+                <h2>📊 ANÁLISIS DETALLADO DE SECCIONES</h2>
+                <div class="section-analysis-container">
+                    <div class="analysis-header">
+                        <p>Datos de tiempo y velocidad para cada curva y recta del circuito</p>
+                    </div>
+                    <div id="sectionAnalysisTable" class="section-analysis-table">
+                        <div class="analysis-loading">
+                            <p>Completa una vuelta para ver el análisis de secciones...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Volante (Steering Wheel) Analysis -->
+            <div class="panel volante-analysis-panel">
+                <h2>🎮 ANÁLISIS DE VOLANTE</h2>
+                <div class="volante-stats-grid">
+                    <div class="stat-card">
+                        <h4>Ángulo Máximo</h4>
+                        <p class="stat-value" id="maxSteeringAngle">--</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Velocidad Angular Máx</h4>
+                        <p class="stat-value" id="maxAngularVelocity">--</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Aceleración Angular Máx</h4>
+                        <p class="stat-value" id="maxAngularAcceleration">--</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Uso Promedio Freno</h4>
+                        <p class="stat-value" id="avgBrakeUsage">--</p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="steeringAnalysisChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="panel chart-panel">
+                    <h3>Comparación de Velocidad</h3>
+                    <canvas id="speedChart"></canvas>
+                </div>
+                <div class="panel chart-panel">
+                    <h3>Análisis de Controles</h3>
+                    <canvas id="inputsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- History Button (Bottom) -->
+            <div
+                style="text-align: center; margin-top: 30px; margin-bottom: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button id="historyButtonAnalysisBottom" class="history-button"
+                    style="background: rgba(var(--accent-cyan-rgb), 0.2); border: 1px solid var(--accent-cyan); color: var(--text-primary); padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1.1rem; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 10px;">
+                    📜 Ver Historial Completo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History View -->
+    <div id="historyView" class="view">
+        <header class="header">
+            <h1 class="title">HISTORIAL DE CARRERAS</h1>
+            <div class="header-buttons">
+                <button class="nav-button" id="showTrackListButton">📂 Todas las carreras</button>
+                <button class="back-button" id="backFromHistoryButton">← Volver a En Vivo</button>
+            </div>
+        </header>
+
+        <div class="analysis-container">
+            <!-- Track Selection Grid (Hidden by default, shown via button) -->
+            <div id="trackSelectionContainer" class="panel track-selection-panel hidden" style="width: 100%;">
+                <h2>SELECCIONA UN CIRCUITO</h2>
+                <div id="trackList" class="track-grid"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;">
+                    <!-- Tracks will be injected here -->
+                    <p class="loading">Cargando circuitos...</p>
+                </div>
+            </div>
+
+            <!-- Track History Dashboard (Always Visible by default, hidden when list is shown) -->
+            <div id="trackHistoryDashboard" class="" style="width: 100%;">
+                <div class="panel-header"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 id="selectedTrackTitle" style="margin: 0; font-family: 'Exo 2', sans-serif;">ANÁLISIS DE
+                        CIRCUITO: --</h2>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="charts-grid"
+                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <!-- Last 3 Races Chart -->
+                    <div class="panel chart-panel">
+                        <h3>Comparación: Últimas 3 Carreras (Mejor Vuelta)</h3>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="lastRacesChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Last 3 Laps Chart -->
+                    <div class="panel chart-panel">
+                        <h3>Consistencia: Últimas 3 Vueltas (Sesión Actual)</h3>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="lastLapsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Speed Comparison Chart (New) -->
+                <div class="panel chart-panel" style="margin-bottom: 20px;">
+                    <h3>Comparación de Velocidad (Mejores Vueltas)</h3>
+                    <div style="height: 400px; position: relative;">
+                        <canvas id="speedComparisonChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Analysis Containers (New) -->
+                <div class="charts-grid"
+                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <!-- Race Analysis Container -->
+                    <div class="panel analysis-stats-panel" id="raceAnalysisContainer">
+                        <h3>📊 Análisis de Carreras (Últimas 3)</h3>
+                        <div class="analysis-content" id="raceAnalysisContent">
+                            <p class="loading">Cargando datos...</p>
+                        </div>
+                    </div>
+
+                    <!-- Lap Analysis Container -->
+                    <div class="panel analysis-stats-panel" id="lapAnalysisContainer">
+                        <h3>⏱️ Análisis de Vueltas (Últimas 3)</h3>
+                        <div class="analysis-content" id="lapAnalysisContent">
+                            <p class="loading">Cargando datos...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="panel history-table-panel">
+                    <h2>HISTORIAL DE SESIONES</h2>
+                    <div class="table-container">
+                        <table id="historyTable" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left;">
+                                    <th style="padding: 12px; color: var(--text-secondary);">Fecha</th>
+                                    <th style="padding: 12px; color: var(--text-secondary);">Coche</th>
+                                    <th style="padding: 12px; color: var(--text-secondary);">Vueltas</th>
+                                    <th style="padding: 12px; color: var(--text-secondary);">Mejor Vuelta</th>
+                                    <th style="padding: 12px; color: var(--text-secondary);">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <!-- History rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <p>INFRAESTRUCTURA DE TI - II &nbsp;|&nbsp; Doc. ROBERTH ENRIQUEZ</p>
+    </footer>
+
+    <!-- Load scripts in correct order: dependencies first -->
+    <script src="charts.js?v=2.5"></script>
+    <script src="app.js?v=3.29"></script>
+</body>
+
+</html>
