@@ -8,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import json
 import logging
+import asyncio
+import glob
+import json
 from typing import List, Dict, Any
 from pathlib import Path
 import sys
@@ -129,6 +132,34 @@ async def get_charts_js():
     """Serve charts JavaScript file"""
     return FileResponse(FRONTEND_PATH / "charts.js")
 
+
+@app.get("/api/pedal-sessions")
+async def list_pedal_sessions():
+    """List all available pedal analysis sessions"""
+    try:
+        # Assuming path relative to backend execution
+        # In pedals.py: SESIONES_DIR = "data/pedal_analysis"
+        path = "data/pedal_analysis/*.json"
+        files = glob.glob(path)
+        # return filenames only, sorted by newest
+        files.sort(key=os.path.getmtime, reverse=True)
+        return [os.path.basename(f) for f in files]
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/pedal-sessions/{filename}")
+async def get_pedal_session(filename: str):
+    """Get details of a specific pedal analysis session"""
+    try:
+        path = os.path.join("data/pedal_analysis", filename)
+        if not os.path.exists(path):
+            return {"error": "File not found"}
+            
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

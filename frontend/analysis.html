@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assetto Corsa Telemetry - Análisis</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" id="themeToggle">
+        <span class="theme-icon">☀️</span>
+    </div>
+
+    <div class="app-container">
+        <main class="main-content">
+            <!-- Analysis View -->
+            <div id="analysisView" class="view" style="display: block;">
+                <header class="header">
+                    <div class="header-left" style="display: flex; align-items: center; gap: 15px;">
+                        <a href="/" class="nav-btn back-btn">← Inicio</a>
+                        <a href="/history" class="nav-btn back-btn">Historial</a>
+                    </div>
+                    <h1 class="title">ANÁLISIS DE SESIÓN</h1>
+                    <div class="session-info">
+                        <!-- Session details loaded dynamically -->
+                    </div>
+                </header>
+
+                <div class="analysis-container">
+                    <!-- Session Summary -->
+                    <div class="panel session-summary">
+                        <h2>RESUMEN DE SESIÓN</h2>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <span class="label">Tipo de Sesión</span>
+                                <span class="value session-type-badge" id="summarySessionType">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Circuito</span>
+                                <span class="value" id="summaryTrack">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Coche</span>
+                                <span class="value" id="summaryCar">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Vueltas Totales</span>
+                                <span class="value" id="summaryLaps">--</span>
+                            </div>
+                            <div class="summary-item highlight">
+                                <span class="label">Mejor Vuelta</span>
+                                <span class="value" id="summaryBestLap">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendations -->
+                    <div class="panel recommendations-panel">
+                        <h2>RECOMENDACIONES IA</h2>
+                        <div id="recommendationsList" class="recommendations-list">
+                            <p class="loading">Cargando análisis...</p>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Tabs -->
+                    <div class="analysis-tabs">
+                        <button class="tab-btn active" data-tab="laps">Tiempos de Vuelta</button>
+                        <button class="tab-btn" data-tab="telemetry">Telemetría</button>
+                        <button class="tab-btn" data-tab="track">Mapa del Circuito</button>
+                    </div>
+
+                    <!-- Lap Times Table -->
+                    <div id="lapsTab" class="tab-content active">
+                        <div class="panel laps-table-panel">
+                            <div class="table-container">
+                                <table id="lapsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Vuelta</th>
+                                            <th>Tiempo</th>
+                                            <th>Sector 1</th>
+                                            <th>Sector 2</th>
+                                            <th>Sector 3</th>
+                                            <th>Válida</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Rows injected here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Telemetry Charts -->
+                    <div id="telemetryTab" class="tab-content">
+                        <div class="panel chart-panel">
+                            <h3>Velocidad y RPM</h3>
+                            <canvas id="telemetryChartMain"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Track Map -->
+                    <div id="trackTab" class="tab-content">
+                        <div class="panel chart-panel">
+                            <canvas id="trackMapCanvas"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/charts.js"></script>
+    <script src="/static/js/analysis.js"></script>
+</body>
+
+</html>

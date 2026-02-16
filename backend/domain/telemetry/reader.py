@@ -403,7 +403,20 @@ class TelemetryReader:
             
             # Other
             'water_temp': physics.waterTemp,
-            'timestamp': graphics.iCurrentTime / 1000.0  # Convert ms to seconds
+            'timestamp': graphics.iCurrentTime / 1000.0,  # Convert ms to seconds
+            
+            # Additional Telemetry (Volante Expanded)
+            'force_feedback': physics.finalFF,
+            'brake_bias': physics.brakeBias,
+            'tc': physics.tc,
+            'abs': physics.abs,
+            'engine_brake': physics.engineBrake,
+            'turbo_boost': physics.turboBoost,
+            'kers_charge': physics.kersCharge,
+            'kers_input': physics.kersInput,
+            'drs': physics.drs,
+            'drs_available': physics.drsAvailable,
+            'drs_enabled': physics.drsEnabled
         }
     
     def is_in_race(self) -> bool:

@@ -300,6 +300,11 @@ body {
     color: var(--accent-cyan);
 }
 
+.full-width-panel {
+    grid-column: 1 / -1;
+    width: 100%;
+}
+
 /* Lap Times */
 .lap-time-grid {
     display: grid;

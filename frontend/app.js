@@ -352,19 +352,94 @@ function updateTelemetry(data) {
 
             // Update volante display
             document.getElementById('steeringAngle').textContent = `${currentSteeringAngle.toFixed(1)}°`;
-            document.getElementById('angularVelocity').textContent = `${angularVelocity.toFixed(1)}°/s`;
-            document.getElementById('angularAcceleration').textContent = `${angularAcceleration.toFixed(1)}°/s²`;
-            document.getElementById('brakePct').textContent = `${(data.brake * 100).toFixed(1)}%`;
-            document.getElementById('throttlePct').textContent = `${(data.throttle * 100).toFixed(1)}%`;
-            document.getElementById('sampleFreq').textContent = `${avgFrequency.toFixed(0)} Hz`;
+            if (data.angular_velocity !== undefined) document.getElementById('angularVelocity').textContent = data.angular_velocity.toFixed(1) + '°/s';
+            if (data.angular_acceleration !== undefined) document.getElementById('angularAcceleration').textContent = data.angular_acceleration.toFixed(1) + '°/s²';
+            if (data.sample_frequency !== undefined) document.getElementById('sampleFreq').textContent = Math.round(data.sample_frequency) + ' Hz';
+
+            // New Volante Data
+            if (data.force_feedback !== undefined) document.getElementById('ffbSignal').textContent = (data.force_feedback * 100).toFixed(1) + '%';
+            if (data.brake_bias !== undefined) document.getElementById('brakeBias').textContent = (data.brake_bias * 100).toFixed(1) + '%';
+            if (data.turbo_boost !== undefined) document.getElementById('turboBoost').textContent = data.turbo_boost.toFixed(2) + ' bar';
+
+            if (data.tc !== undefined) document.getElementById('tcLevel').textContent = data.tc.toFixed(0);
+            else document.getElementById('tcLevel').textContent = '--';
+
+            if (data.abs !== undefined) document.getElementById('absLevel').textContent = data.abs.toFixed(0);
+            else document.getElementById('absLevel').textContent = '--';
+
+            if (data.engine_brake !== undefined) document.getElementById('engineBrake').textContent = data.engine_brake.toFixed(0);
+            else document.getElementById('engineBrake').textContent = '--';
+
+            if (data.kers_charge !== undefined) document.getElementById('kersCharge').textContent = (data.kers_charge * 100).toFixed(0) + '%';
+            else document.getElementById('kersCharge').textContent = '--';
+
+            if (data.drs_available) {
+                const drsElement = document.getElementById('drsStatus');
+                if (data.drs_enabled) {
+                    drsElement.textContent = 'ACTIVO';
+                    drsElement.style.color = 'var(--accent-green)';
+                } else {
+                    drsElement.textContent = 'DISPONIBLE';
+                    drsElement.style.color = 'var(--accent-yellow)';
+                }
+            } else {
+                const drsElement = document.getElementById('drsStatus');
+                if (drsElement) {
+                    drsElement.textContent = 'NO DISP.';
+                    drsElement.style.color = 'var(--text-secondary)';
+                }
+            }
 
             // Update previous values
             previousAngularVelocity = angularVelocity;
         }
     }
 
+    // --- Suspensión Visual (Twin de FFB) ---
+
 
     // =================================================
+    // --- PEDAL ANALYSIS UPDATES (LIVE) ---
+    // =================================================
+    if (data.pedal_metrics) {
+        const pm = data.pedal_metrics;
+
+        // FRENADA
+        const totalBrakingEl = document.getElementById('totalBraking');
+        if (totalBrakingEl) totalBrakingEl.textContent = pm.frenadas_totales || 0;
+
+        const harshBrakingEl = document.getElementById('harshBraking');
+        if (harshBrakingEl) harshBrakingEl.textContent = pm.frenadas_bruscas || 0;
+
+        // CURVAS
+        const excCurvesEl = document.getElementById('excellentCurves');
+        if (excCurvesEl) excCurvesEl.textContent = pm.curvas_excelentes || 0;
+
+        const poorCurvesEl = document.getElementById('poorCurves'); // New field
+        if (poorCurvesEl) poorCurvesEl.textContent = pm.curvas_mejorables || 0;
+
+        const cornerBrakingEl = document.getElementById('cornerBraking'); // New field
+        if (cornerBrakingEl) cornerBrakingEl.textContent = pm.uso_incorrecto_curva || 0;
+
+        // FEEDBACK LOG
+        const feedbackLog = document.getElementById('liveFeedbackLog');
+        if (feedbackLog && pm.alerts && pm.alerts.length > 0) {
+            // Get last alert
+            const lastAlert = pm.alerts[pm.alerts.length - 1];
+            // Format: [Type] Message
+            // We'll just show the message as the alert object is usually {message, type, time}
+            // pedals.py: self.recent_alerts.append({"message": msg, "type": type, "time": time.time()})
+            // But get_current_stats returns a list of these objects.
+
+            // Check if it's a new alert to avoid spamming
+            if (feedbackLog.lastMsg !== lastAlert.message) {
+                feedbackLog.innerHTML = `<div style="margin-bottom: 2px;">${lastAlert.message}</div>` + feedbackLog.innerHTML;
+                // Keep only last 5 lines
+                if (feedbackLog.childElementCount > 5) feedbackLog.lastElementChild.remove();
+                feedbackLog.lastMsg = lastAlert.message;
+            }
+        }
+    }
     // --- GRUPO 3: ACTUALIZAR PANEL DE FÍSICA (START) ---
     // =================================================
     // 1. Force Feedback (Intensidad)
@@ -372,20 +447,20 @@ function updateTelemetry(data) {
     // Actualizar barra y texto
     const ffbBar = document.getElementById('ffb-bar-fill');
     const ffbText = document.getElementById('ffb-val-text');
-    if(ffbBar) ffbBar.style.width = Math.min(ffbValue, 100) + '%';
-    if(ffbText) ffbText.innerText = ffbValue.toFixed(1) + '%';
+    if (ffbBar) ffbBar.style.width = Math.min(ffbValue, 100) + '%';
+    if (ffbText) ffbText.innerText = ffbValue.toFixed(1) + '%';
     // Alerta de Clipping (Si satura la fuerza)
     const clipMsg = document.getElementById('ffb-clipping-msg');
-    if(clipMsg) {
+    if (clipMsg) {
         clipMsg.style.visibility = ffbValue > 98 ? 'visible' : 'hidden';
     }
     // --- NUEVO: Actualizar Estadísticas FFB ---
     const instEl = document.getElementById('g3-stat-instant');
-    if(instEl) instEl.textContent = (data.finalFF || 0).toFixed(3);
+    if (instEl) instEl.textContent = (data.finalFF || 0).toFixed(3);
     const rmsEl = document.getElementById('g3-stat-rms');
-    if(rmsEl) rmsEl.textContent = (data.rmsValue || 0).toFixed(3);
+    if (rmsEl) rmsEl.textContent = (data.rmsValue || 0).toFixed(3);
     const peaksEl = document.getElementById('g3-stat-peaks');
-    if(peaksEl) peaksEl.textContent = (data.peakCount || 0);
+    if (peaksEl) peaksEl.textContent = (data.peakCount || 0);
     // ------------------------------------------
     // 2. Vibraciones (Picos)
     const kerbVal = (data.kerbVibration || 0) * 100;
@@ -398,12 +473,12 @@ function updateTelemetry(data) {
     const kerbTxt = document.getElementById('val-kerb');
     const slipTxt = document.getElementById('val-slip');
     const absTxt = document.getElementById('val-abs');
-    if(kerbBar) kerbBar.style.width = Math.min(kerbVal, 100) + '%';
-    if(kerbTxt) kerbTxt.textContent = Math.round(kerbVal) + '%';
-    if(slipBar) slipBar.style.width = Math.min(slipVal, 100) + '%';
-    if(slipTxt) slipTxt.textContent = Math.round(slipVal) + '%';
-    if(absBar) absBar.style.width = Math.min(absVal, 100) + '%';
-    if(absTxt) absTxt.textContent = Math.round(absVal) + '%';
+    if (kerbBar) kerbBar.style.width = Math.min(kerbVal, 100) + '%';
+    if (kerbTxt) kerbTxt.textContent = Math.round(kerbVal) + '%';
+    if (slipBar) slipBar.style.width = Math.min(slipVal, 100) + '%';
+    if (slipTxt) slipTxt.textContent = Math.round(slipVal) + '%';
+    if (absBar) absBar.style.width = Math.min(absVal, 100) + '%';
+    if (absTxt) absTxt.textContent = Math.round(absVal) + '%';
     // ------------------------------------------
     // 3. Eventos Críticos (Alertas de Texto)
     const alertBox = document.getElementById('physics-alert-box');
@@ -468,12 +543,12 @@ function updateSusp(id, value) {
         // 1.0 -> 90% height
         const heightPct = 10 + (value * 80);
         el.style.height = `${heightPct}%`;
-        
+
         // Color según intensidad
         if (value > 0.8 || value < 0.2) {
-             el.style.backgroundColor = '#ff0055'; // Rojo si está muy comprimida/extendida
+            el.style.backgroundColor = '#ff0055'; // Rojo si está muy comprimida/extendida
         } else {
-             el.style.backgroundColor = '#0088ff';
+            el.style.backgroundColor = '#0088ff';
         }
     }
 }

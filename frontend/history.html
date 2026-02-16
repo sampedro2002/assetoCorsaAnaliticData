@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assetto Corsa Telemetry - Historial</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" id="themeToggle">
+        <span class="theme-icon">☀️</span>
+    </div>
+
+    <div class="app-container">
+        <main class="main-content">
+            <!-- History View -->
+            <div id="historyView" class="view" style="display: block;">
+                <header class="header">
+                    <a href="/" class="nav-btn back-btn">← Volver al Dashboard</a>
+                    <h1 class="title">HISTORIAL DE CARRERAS</h1>
+                    <div class="header-buttons">
+                        <!-- Filter buttons could go here -->
+                    </div>
+                </header>
+
+                <div class="analysis-container">
+                    <!-- Track Selection Grid -->
+                    <div id="trackSelectionContainer" class="panel track-selection-panel" style="width: 100%;">
+                        <h2>SELECCIONA UN CIRCUITO</h2>
+                        <div id="trackList" class="track-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;">
+                            <p class="loading">Cargando circuitos...</p>
+                        </div>
+                    </div>
+
+                    <!-- Track History Dashboard (initially hidden) -->
+                    <div id="trackHistoryDashboard" class="hidden" style="width: 100%;">
+                        <div class="panel-header"
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 id="selectedTrackTitle" style="margin: 0; font-family: 'Exo 2', sans-serif;">ANÁLISIS DE
+                                CIRCUITO</h2>
+                            <button id="backToTracksBtn" class="nav-btn">Ver todos los circuitos</button>
+                        </div>
+
+                        <!-- Session List in this track -->
+                        <div class="panel">
+                            <h3>Sesiones Recientes</h3>
+                            <div id="sessionList" style="display: flex; flex-direction: column; gap: 10px;">
+                                <!-- Sessions injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Charts Row -->
+                        <div class="charts-grid"
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                            <div class="panel chart-panel">
+                                <h3>Progreso: Últimas 3 Carreras</h3>
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="lastRacesChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/history.js"></script>
+</body>
+
+</html>

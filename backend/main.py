@@ -19,6 +19,7 @@ from backend.domain.telemetry.reader import TelemetryReader
 from backend.database.database import Database
 from backend.domain.analysis.analyzer import DataAnalyzer
 from backend.domain.telemetry.ffb import FFBAnalyzer
+from backend.domain.analysis.pedals import PedalAnalyzer
 from backend.api.websocket import get_app, get_manager
 
 logging.basicConfig(
@@ -37,6 +38,7 @@ class TelemetrySystem:
         self.database = Database()
         self.analyzer = DataAnalyzer(self.database)
         self.ffb_analyzer = FFBAnalyzer()
+        self.pedal_analyzer = PedalAnalyzer()
         self.manager = get_manager()
         
         # State tracking
@@ -317,6 +319,10 @@ class TelemetrySystem:
         # Analizamos FFB en tiempo real
         ffb_data = self.ffb_analyzer.analyze_realtime(snapshot)
         snapshot.update(ffb_data)
+        
+        # Analizamos Pedales en tiempo real
+        pedal_stats = self.pedal_analyzer.procesar_muestra(snapshot)
+        snapshot.update(pedal_stats)
         # ---------------------------
         
         await self.manager.broadcast({
@@ -429,6 +435,10 @@ class TelemetrySystem:
         if self.volante_buffer:
             self.database.insert_volante_batch(self.volante_buffer)
             self.volante_buffer = []
+            
+        # Save pedal analysis
+        self.pedal_analyzer.guardar_sesion()
+        self.pedal_analyzer.resetear_sesion()
         
         # Update session end time
         if self.current_session_id:

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assetto Corsa Telemetry - Live</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" id="themeToggle">
+        <span class="theme-icon">☀️</span>
+    </div>
+
+    <!-- Disconnect Overlay -->
+    <div id="disconnectOverlay" class="disconnect-overlay hidden">
+        <div class="disconnect-content">
+            <div class="disconnect-icon">⚠️</div>
+            <h2>Assetto Corsa Desconectado</h2>
+            <p>No hay datos disponibles</p>
+            <div class="disconnect-status">
+                <span class="status-dot pulsing"></span>
+                <span>Esperando conexión...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <main class="main-content">
+            <!-- Live Dashboard View -->
+            <div id="liveView" class="view active" style="display: block;">
+                <header class="header">
+                    <h1 class="title">DATOS EN VIVO</h1>
+                    <div class="session-info" id="sessionInfo">
+                        <span class="session-mode" id="sessionMode">Practice</span>
+                        <span id="trackName">--</span>
+                        <span id="carName">--</span>
+                    </div>
+                    <div class="header-buttons">
+                        <a href="/history" class="nav-btn">📜 Historial</a>
+                        <!-- Analysis link appears after race -->
+                    </div>
+                </header>
+
+                <div class="dashboard">
+                    <!-- Left Column -->
+                    <div class="column left-column">
+                        <!-- Speed Gauge -->
+                        <div class="panel speed-panel">
+                            <div class="gauge-container">
+                                <canvas id="speedGauge"></canvas>
+                                <div class="gauge-value">
+                                    <span id="speedValue">0</span>
+                                    <span class="unit">km/h</span>
+                                </div>
+                                <div class="gear-display" id="gearDisplay">N</div>
+                            </div>
+                        </div>
+
+                        <!-- G-Force Meter -->
+                        <div class="panel gforce-panel">
+                            <h3>FUERZAS G</h3>
+                            <div class="gforce-grid">
+                                <div class="gforce-item">
+                                    <span class="label">Lateral</span>
+                                    <span class="value" id="gforceLat">0.00</span>
+                                </div>
+                                <div class="gforce-item">
+                                    <span class="label">Longitudinal</span>
+                                    <span class="value" id="gforceLong">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center Column -->
+                    <div class="column center-column">
+                        <!-- Lap Times -->
+                        <div class="panel lap-times-panel">
+                            <h3>TIEMPOS DE VUELTA</h3>
+                            <div class="lap-time-grid">
+                                <div class="lap-time-item">
+                                    <span class="label">Actual</span>
+                                    <span class="time" id="currentLapTime">--:--.---</span>
+                                </div>
+                                <div class="lap-time-item">
+                                    <span class="label">Última</span>
+                                    <span class="time" id="lastLapTime">--:--.---</span>
+                                </div>
+                                <div class="lap-time-item best">
+                                    <span class="label">Mejor</span>
+                                    <span class="time" id="bestLapTime">--:--.---</span>
+                                </div>
+                                <div class="lap-time-item">
+                                    <span class="label">Delta</span>
+                                    <span class="time delta" id="deltaTime">+0.000</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Inputs Display -->
+                        <div class="panel inputs-panel">
+                            <h3>CONTROLES</h3>
+                            <div class="input-bars">
+                                <div class="input-bar">
+                                    <span class="label">Acelerador</span>
+                                    <div class="bar-container">
+                                        <div class="bar throttle-bar" id="throttleBar"></div>
+                                    </div>
+                                    <span class="value" id="throttleValue">0%</span>
+                                </div>
+                                <div class="input-bar">
+                                    <span class="label">Freno</span>
+                                    <div class="bar-container">
+                                        <div class="bar brake-bar" id="brakeBar"></div>
+                                    </div>
+                                    <span class="value" id="brakeValue">0%</span>
+                                </div>
+                                <div class="input-bar">
+                                    <span class="label">Dirección</span>
+                                    <div class="bar-container steering-container">
+                                        <div class="bar steering-bar" id="steeringBar"></div>
+                                    </div>
+                                    <span class="value" id="steeringValue">0°</span>
+                                </div>
+                            </div>
+                            <div class="clutch-bar-container">
+                                <div class="bar clutch-bar" id="clutchBar"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="column right-column">
+                        <!-- Tires & Physics -->
+                        <div class="panel tires-panel">
+                            <h3>NEUMÁTICOS & FÍSICA</h3>
+                            <div class="car-diagram">
+                                <div class="tire tire-fl" id="tireFL">
+                                    <span class="tire-temp">--</span>
+                                    <span class="tire-pres">-- psi</span>
+                                </div>
+                                <div class="tire tire-fr" id="tireFR">
+                                    <span class="tire-temp">--</span>
+                                    <span class="tire-pres">-- psi</span>
+                                </div>
+                                <div class="tire tire-rl" id="tireRL">
+                                    <span class="tire-temp">--</span>
+                                    <span class="tire-pres">-- psi</span>
+                                </div>
+                                <div class="tire tire-rr" id="tireRR">
+                                    <span class="tire-temp">--</span>
+                                    <span class="tire-pres">-- psi</span>
+                                </div>
+                                <div class="car-body"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/live.js"></script>
+</body>
+
+</html>

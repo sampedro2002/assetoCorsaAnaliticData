@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de Pedales - Assetto Corsa Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=Space+Grotesk:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .analysis-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header-panel {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid var(--accent-red);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .session-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .session-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .session-card:hover {
+            border-color: var(--accent-red);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .session-card.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 255, 255, 0.1);
+        }
+
+        /* Analysis Details */
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            border-radius: 10px;
+            border-top: 3px solid var(--accent-red);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            font-family: 'Space Grotesk', sans-serif;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            text-transform: uppercase;
+        }
+
+        .chart-wrapper {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            border-radius: 10px;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .conclusion-box {
+            background: rgba(0, 100, 255, 0.1);
+            border-left: 5px solid var(--accent-cyan);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="monitor-frame">
+        <header>
+            <div class="logo">ASSETTO CORSA <span>TELEMETRY</span></div>
+            <nav>
+                <a href="index.html">LIVE</a>
+                <a href="analysis.html">ANÁLISIS</a>
+                <a href="history.html">HISTORIAL</a>
+                <a href="pedals.html" class="active">PEDALES</a>
+            </nav>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-indicator disconnected"></span>
+                <span class="status-text">DESCONECTADO</span>
+            </div>
+        </header>
+
+        <div class="analysis-container">
+            <div class="header-panel">
+                <div>
+                    <h1>🏁 ANÁLISIS DE PEDALES</h1>
+                    <p>Selecciona una sesión para ver el detalle de frenada y aceleración</p>
+                </div>
+                <!-- Controls if needed -->
+            </div>
+
+            <div id="sessionList" class="session-list">
+                <!-- Session cards will be injected here -->
+                <div class="session-card">Cargando sesiones...</div>
+            </div>
+
+            <div id="analysisView" style="display: none;">
+                <div class="details-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="maxSpeed">0</div>
+                        <div class="stat-label">Velocidad Máx (km/h)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="avgBrakeTime">0</div>
+                        <div class="stat-label">Tiempo Frenado (s)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="avgReaction">0</div>
+                        <div class="stat-label">Reacción 0-100% (s)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="score">0</div>
+                        <div class="stat-label">Puntuación</div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="mainChart"></canvas>
+                </div>
+
+                <div class="details-grid">
+                    <div class="stat-box" style="border-color: var(--accent-yellow);">
+                        <div class="stat-value" id="harshBraking">0</div>
+                        <div class="stat-label">Frenadas Bruscas</div>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-green);">
+                        <div class="stat-value" id="excellentCurves">0</div>
+                        <div class="stat-label">Curvas Excelentes</div>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-red);">
+                        <div class="stat-value" id="badCurves">0</div>
+                        <div class="stat-label">Freno en Curva</div>
+                    </div>
+                    <div class="stat-box" style="border-color: white;">
+                        <div class="stat-value" id="totalLaps">--</div>
+                        <div class="stat-label">Vueltas</div>
+                    </div>
+                </div>
+
+                <div class="conclusion-box">
+                    <h3>💡 Conclusión del Ingeniero</h3>
+                    <p id="engineerConclusion" style="font-size: 1.1em; line-height: 1.5;">--</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Basic logic to fetch and display pedal sessions
+        // This assumes backend serves files from data/pedal_analysis via an API endpoint
+        // Since we don't have a specific listed endpoint for listing JSON files, we might need to add one or use an existing one.
+        // For now, let's implement the UI and connection status.
+
+        let currentChart = null;
+
+        // Populate session list (Mock for now, needs backend endpoint)
+        // Or we can try to reuse websocket to ask for list
+
+        // Let's reuse the socket logic from common.js if possible, or simple fetch if we add an API.
+        // Given constraints, I will add a simple API endpoint in the next step to list these files.
+
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/pedal-sessions');
+                if (!response.ok) throw new Error("No API found");
+                const sessions = await response.json();
+
+                const list = document.getElementById('sessionList');
+                list.innerHTML = '';
+
+                if (sessions.length === 0) {
+                    list.innerHTML = '<p>No hay sesiones de pedales registradas.</p>';
+                    return;
+                }
+
+                sessions.forEach(file => {
+                    const div = document.createElement('div');
+                    div.className = 'session-card';
+                    div.innerText = file.replace('.json', '');
+                    div.onclick = () => loadSessionDetail(file);
+                    list.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+                document.getElementById('sessionList').innerHTML = '<p>Error cargando sesiones (API no lista).</p>';
+            }
+        }
+
+        async function loadSessionDetail(filename) {
+            try {
+                // Highlight selected
+                document.querySelectorAll('.session-card').forEach(c => c.classList.remove('active'));
+                event.target.classList.add('active');
+
+                const response = await fetch(`/api/pedal-sessions/${filename}`);
+                const data = await response.json();
+
+                document.getElementById('analysisView').style.display = 'block';
+
+                // Update stats
+                document.getElementById('maxSpeed').innerText = data.maximos.velocidad_kmh;
+                document.getElementById('avgBrakeTime').innerText = data.promedios.tiempo_frenado_s;
+                document.getElementById('avgReaction').innerText = data.promedios.tiempo_transicion_0_100_s;
+                document.getElementById('score').innerText = data.resumen.puntuacion_total;
+
+                document.getElementById('harshBraking').innerText = data.frenado.bruscas;
+                document.getElementById('excellentCurves').innerText = data.curvas.curvas_excelentes;
+                document.getElementById('badCurves').innerText = data.curvas.uso_incorrecto_freno;
+                document.getElementById('engineerConclusion').innerText = data.resumen.conclusion;
+
+                // Chart
+                renderChart(data.graficos);
+
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderChart(graphData) {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (currentChart) currentChart.destroy();
+
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: graphData.tiempo.map(t => (t - graphData.tiempo[0]).toFixed(1)),
+                    datasets: [
+                        {
+                            label: 'Velocidad (km/h)',
+                            data: graphData.velocidad,
+                            borderColor: '#00ccff',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Acelerador (%)',
+                            data: graphData.acelerador,
+                            borderColor: '#00ff88',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Freno (%)',
+                            data: graphData.freno,
+                            borderColor: '#ff3333',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: { display: true, text: 'km/h', color: '#888' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: { display: true, text: '%', color: '#888' },
+                            min: 0,
+                            max: 100,
+                            grid: { drawOnChartArea: false }
+                        },
+                        x: {
+                            ticks: { maxTicksLimit: 20 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', loadSessions);
+    </script>
+</body>
+
+</html>

@@ -58,6 +58,8 @@
         </header>
 
         <div class="dashboard">
+
+
             <!-- Left Column -->
             <div class="column left-column">
                 <!-- Speed Gauge -->
@@ -171,37 +173,6 @@
                         <div class="lap-label">Completadas</div>
                     </div>
                 </div>
-
-                <!-- Volante (Steering Wheel) Telemetry -->
-                <div class="panel volante-panel">
-                    <h3>🎮 VOLANTE</h3>
-                    <div class="volante-grid">
-                        <div class="volante-item">
-                            <span class="label">Ángulo:</span>
-                            <span class="value" id="steeringAngle">0.0°</span>
-                        </div>
-                        <div class="volante-item">
-                            <span class="label">Vel. Angular:</span>
-                            <span class="value" id="angularVelocity">0.0°/s</span>
-                        </div>
-                        <div class="volante-item">
-                            <span class="label">Acel. Angular:</span>
-                            <span class="value" id="angularAcceleration">0.0°/s²</span>
-                        </div>
-                        <div class="volante-item">
-                            <span class="label">Freno:</span>
-                            <span class="value" id="brakePct">0.0%</span>
-                        </div>
-                        <div class="volante-item">
-                            <span class="label">Acelerador:</span>
-                            <span class="value" id="throttlePct">0.0%</span>
-                        </div>
-                        <div class="volante-item">
-                            <span class="label">Frecuencia:</span>
-                            <span class="value" id="sampleFreq">0 Hz</span>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Right Column -->
@@ -275,15 +246,74 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Volante (Steering Wheel) Telemetry - Enhanced & Full Width -->
+            <div class="panel volante-panel full-width-panel" style="grid-column: span 3; margin-top: 5px;">
+                <h3>🎮 VOLANTE & AYUDAS</h3>
+                <div class="volante-grid" style="grid-template-columns: repeat(6, 1fr);">
+                    <!-- Original Data -->
+                    <div class="volante-item">
+                        <span class="label">Ángulo:</span>
+                        <span class="value" id="steeringAngle">0.0°</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">Vel. Angular:</span>
+                        <span class="value" id="angularVelocity">0.0°/s</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">Acel. Angular:</span>
+                        <span class="value" id="angularAcceleration">0.0°/s²</span>
+                    </div>
+
+                    <!-- New Data -->
+                    <div class="volante-item">
+                        <span class="label">Force Feedback:</span>
+                        <span class="value" id="ffbSignal">0.0%</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">Brake Bias:</span>
+                        <span class="value" id="brakeBias">--%</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">Turbo Boost:</span>
+                        <span class="value" id="turboBoost">0.0 bar</span>
+                    </div>
+
+                    <!-- Row 2 -->
+                    <div class="volante-item">
+                        <span class="label">TC (Control Tracción):</span>
+                        <span class="value" id="tcLevel">--</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">ABS:</span>
+                        <span class="value" id="absLevel">--</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">Engine Brake:</span>
+                        <span class="value" id="engineBrake">--</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">ERS / KERS:</span>
+                        <span class="value" id="kersCharge">--%</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">DRS:</span>
+                        <span class="value" id="drsStatus" style="font-size: 0.9em;">NO DISP.</span>
+                    </div>
+                    <div class="volante-item">
+                        <span class="label">Frecuencia:</span>
+                        <span class="value" id="sampleFreq">0 Hz</span>
+                    </div>
+                </div>
             </div>
 
             <!-- FFB Panel (New Row) -->
-            <div class="card full-width-panel" style="grid-column: span 3; margin-top: 15px; border: 1px solid #00ffff; background: rgba(0,0,0,0.7); border-radius: 10px; padding: 15px;">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; color: #00ffff; font-family: 'Exo 2', sans-serif; letter-spacing: 2px;">FORCE FEEDBACK (G3)</h3>
-                    <div id="physics-alert-box" style="background: #333; padding: 5px 15px; border-radius: 4px; font-weight: bold; color: #888;">
-                        ESTADO: NOMINAL
-                    </div>
+            <div class="card full-width-panel"
+                style="grid-column: span 3; margin-top: 15px; border: 1px solid #00ffff; background: rgba(0,0,0,0.7); border-radius: 10px; padding: 15px;">
+                <div class="card-header"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #00ffff; font-family: 'Exo 2', sans-serif; letter-spacing: 2px;">FORCE
+                        FEEDBACK (G3)</h3>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                     <!-- FFB Intensity & Stats -->
@@ -293,24 +323,35 @@
                                 <label style="color: #aaa; font-size: 0.8em;">TORQUE FFB (Nm)</label>
                                 <span id="ffb-val-text" style="color: white; font-weight: bold;">0.0%</span>
                             </div>
-                            <div style="height: 25px; background: #222; border-radius: 4px; border: 1px solid #444; position: relative; overflow: hidden;">
-                                <div id="ffb-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00ff88, #ffff00, #ff0000); transition: width 0.05s;"></div>
+                            <div
+                                style="height: 25px; background: #222; border-radius: 4px; border: 1px solid #444; position: relative; overflow: hidden;">
+                                <div id="ffb-bar-fill"
+                                    style="width: 0%; height: 100%; background: linear-gradient(90deg, #00ff88, #ffff00, #ff0000); transition: width 0.05s;">
+                                </div>
                             </div>
-                            <div id="ffb-clipping-msg" style="color: #ff0000; font-size: 0.7em; font-weight: bold; margin-top: 2px; visibility: hidden;"> SATURACIÓN (CLIPPING)</div>
+                            <div id="ffb-clipping-msg"
+                                style="color: #ff0000; font-size: 0.7em; font-weight: bold; margin-top: 2px; visibility: hidden;">
+                                SATURACIÓN (CLIPPING)</div>
                         </div>
-                        <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; margin-top: 10px;">
-                            <h4 style="margin: 0 0 8px 0; color: #00ffff; font-size: 0.9em; border-bottom: 1px solid #444; padding-bottom: 4px;">ESTADÍSTICAS FFB</h4>
+                        <div
+                            style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; margin-top: 10px;">
+                            <h4
+                                style="margin: 0 0 8px 0; color: #00ffff; font-size: 0.9em; border-bottom: 1px solid #444; padding-bottom: 4px;">
+                                ESTADÍSTICAS FFB</h4>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                                 <span style="color: #ccc; font-size: 0.8em;">FFB Instantáneo:</span>
-                                <span id="g3-stat-instant" style="color: white; font-weight: bold; font-family: monospace;">0.000</span>
+                                <span id="g3-stat-instant"
+                                    style="color: white; font-weight: bold; font-family: monospace;">0.000</span>
                             </div>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                                 <span style="color: #ccc; font-size: 0.8em;">Vibración (RMS ~1s):</span>
-                                <span id="g3-stat-rms" style="color: #00ff88; font-weight: bold; font-family: monospace;">0.000</span>
+                                <span id="g3-stat-rms"
+                                    style="color: #00ff88; font-weight: bold; font-family: monospace;">0.000</span>
                             </div>
                             <div style="display: flex; justify-content: space-between;">
                                 <span style="color: #ccc; font-size: 0.8em;">Picos (últ. 10s):</span>
-                                <span id="g3-stat-peaks" style="color: #ff8800; font-weight: bold; font-family: monospace;">0</span>
+                                <span id="g3-stat-peaks"
+                                    style="color: #ff8800; font-weight: bold; font-family: monospace;">0</span>
                             </div>
                         </div>
                     </div>
@@ -323,7 +364,9 @@
                                 <span id="val-kerb" style="font-size: 0.7em; color: #fff;">0%</span>
                             </div>
                             <div style="height: 8px; background: #222; border-radius: 2px;">
-                                <div id="vib-kerb-bar" style="width: 0%; height: 100%; background: #00ffff; transition: width 0.05s;"></div>
+                                <div id="vib-kerb-bar"
+                                    style="width: 0%; height: 100%; background: #00ffff; transition: width 0.05s;">
+                                </div>
                             </div>
                         </div>
                         <div>
@@ -332,7 +375,9 @@
                                 <span id="val-slip" style="font-size: 0.7em; color: #fff;">0%</span>
                             </div>
                             <div style="height: 8px; background: #222; border-radius: 2px;">
-                                <div id="vib-slip-bar" style="width: 0%; height: 100%; background: #ff8800; transition: width 0.05s;"></div>
+                                <div id="vib-slip-bar"
+                                    style="width: 0%; height: 100%; background: #ff8800; transition: width 0.05s;">
+                                </div>
                             </div>
                         </div>
                         <div>
@@ -341,7 +386,9 @@
                                 <span id="val-abs" style="font-size: 0.7em; color: #fff;">0%</span>
                             </div>
                             <div style="height: 8px; background: #222; border-radius: 2px;">
-                                <div id="vib-abs-bar" style="width: 0%; height: 100%; background: #ffff00; transition: width 0.05s;"></div>
+                                <div id="vib-abs-bar"
+                                    style="width: 0%; height: 100%; background: #ffff00; transition: width 0.05s;">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -349,28 +396,115 @@
                     <!-- Suspension Visual Twin -->
                     <div style="display: flex; gap: 10px; align-items: flex-end; justify-content: space-around;">
                         <div style="text-align: center;">
-                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
-                                <div id="g3-susp-fl" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            <div
+                                style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-fl"
+                                    style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;">
+                                </div>
                             </div>
                             <span style="font-size: 0.6em; color: #aaa;">FL</span>
                         </div>
                         <div style="text-align: center;">
-                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
-                                <div id="g3-susp-fr" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            <div
+                                style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-fr"
+                                    style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;">
+                                </div>
                             </div>
                             <span style="font-size: 0.6em; color: #aaa;">FR</span>
                         </div>
                         <div style="text-align: center;">
-                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
-                                <div id="g3-susp-rl" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            <div
+                                style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-rl"
+                                    style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;">
+                                </div>
                             </div>
                             <span style="font-size: 0.6em; color: #aaa;">RL</span>
                         </div>
                         <div style="text-align: center;">
-                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
-                                <div id="g3-susp-rr" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            <div
+                                style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-rr"
+                                    style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;">
+                                </div>
                             </div>
                             <span style="font-size: 0.6em; color: #aaa;">RR</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pedals & Braking Analysis (F1 ACADEMY STYLE) -->
+            <div class="panel full-width-panel"
+                style="grid-column: span 3; margin-top: 15px; margin-bottom: 20px; border: 2px solid #ff00ff; background: #000; border-radius: 6px; padding: 0; overflow: hidden;">
+
+                <!-- Header with Link to Full Analysis -->
+                <div
+                    style="background: rgba(255, 0, 255, 0.1); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ff00ff;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h3
+                            style="margin: 0; color: #ff00ff; font-family: 'Exo 2', sans-serif; text-transform: uppercase; font-weight: 900; letter-spacing: 1px;">
+                            TELEMETRÍA PEDALES (F1 ACADEMY)
+                        </h3>
+                        <a href="pedals.html" title="Ver Análisis Detallado"
+                            style="text-decoration: none; color: #fff; background: rgba(255,0,255,0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.7em;">↗️</a>
+                    </div>
+                </div>
+
+                <!-- Content Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;">
+
+                    <!-- Col 1: FRENADA -->
+                    <div style="padding: 15px; border-right: 1px solid #333;">
+                        <h4
+                            style="color: #ff3333; margin: 0 0 10px 0; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase;">
+                            FRENADA</h4>
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 5px;">
+                            <span style="color: #aaa;">Totales:</span>
+                            <span id="totalBraking"
+                                style="color: white; font-weight: bold; font-family: monospace;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #aaa;">Bruscas:</span>
+                            <span id="harshBraking"
+                                style="color: #ff3333; font-weight: bold; font-family: monospace;">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Col 2: CURVAS -->
+                    <div style="padding: 15px; border-right: 1px solid #333;">
+                        <h4
+                            style="color: #ffff00; margin: 0 0 10px 0; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase;">
+                            CURVAS</h4>
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 5px;">
+                            <span style="color: #aaa;">Excelentes:</span>
+                            <span id="excellentCurves"
+                                style="color: #00ff00; font-weight: bold; font-family: monospace;">0</span>
+                        </div>
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 5px;">
+                            <span style="color: #aaa;">Mejorables:</span>
+                            <span id="poorCurves"
+                                style="color: #ff8800; font-weight: bold; font-family: monospace;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #aaa;">Freno en Curva:</span>
+                            <span id="cornerBraking"
+                                style="color: #ff3333; font-weight: bold; font-family: monospace;">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Col 3: FEEDBACK -->
+                    <div style="padding: 15px; background: rgba(0,0,0,0.3);">
+                        <h4
+                            style="color: #00ffff; margin: 0 0 10px 0; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase;">
+                            FEEDBACK EN VIVO</h4>
+                        <div id="liveFeedbackLog"
+                            style="font-family: monospace; font-size: 0.85em; color: #888; height: 60px; overflow-y: auto;">
+                            Esperando datos...
                         </div>
                     </div>
                 </div>
@@ -525,6 +659,12 @@
                 <div class="panel chart-panel">
                     <h3>Comparación de Velocidad</h3>
                     <canvas id="speedChart"></canvas>
+                    <nav>
+                        <a href="index.html" class="active">LIVE</a>
+                        <a href="analysis.html">ANÁLISIS</a>
+                        <a href="history.html">HISTORIAL</a>
+                        <a href="pedals.html">PEDALES</a>
+                    </nav>
                 </div>
                 <div class="panel chart-panel">
                     <h3>Análisis de Controles</h3>
