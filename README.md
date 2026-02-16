@@ -15,10 +15,10 @@ Sistema completo de telemetría en tiempo real para Assetto Corsa con análisis 
 ### 1. Ejecutar el servidor
 
 ```bash
-start.bat
+python backend/main.py
 ```
 
-Esto iniciará el servidor web en el puerto 8080 y abrirá automáticamente tu navegador predeterminado.
+Esto iniciará el servidor web en el puerto 8000 y podrás acceder al dashboard.
 
 ### 2. Iniciar Assetto Corsa
 
@@ -31,10 +31,11 @@ El navegador mostrará:
 - **Marcha actual**
 - **G-Forces** (lateral y longitudinal)
 - **Tiempos de vuelta** (actual, última, mejor, delta)
-- **Inputs del piloto** (throttle, brake, steering)
+- **Inputs del piloto** (throttle, brake, steering, FFB)
 - **Combustible**
 - **Neumáticos** (temperaturas y presiones)
 - **Frenos** (temperaturas)
+- **Análisis de FFB y Suspensión**
 
 Después de la carrera verás el análisis detallado.
 
@@ -44,29 +45,18 @@ Después de la carrera verás el análisis detallado.
 - Assetto Corsa (Steam)
 - Navegador web moderno
 
-## 🛠️ Solución de Problemas
-
-### El navegador no abre
-- Abre manualmente `http://localhost:8080` en tu navegador.
-
-### Error "Ambiente virtual no encontrado"
-- Ejecuta `install.bat` en la carpeta `auto`.
-
-### Configuración
-El sistema leerá la ruta de instalación de Assetto Corsa desde el archivo `.env`. Si necesitas cambiarla, edita la variable `AC_INSTALL_PATH` en ese archivo.
-
 ## 🗂️ Estructura del Proyecto
 
 ```
 AssetoCorsa/
-├── start.bat                # Script de inicio
 ├── backend/
-│   ├── main.py              # Aplicación principal
-│   ├── config.py            # Configuración
-│   ├── telemetry_reader.py  # Lector de memoria compartida
-│   ├── database.py          # Gestor SQLite
-│   ├── data_analyzer.py     # Motor de análisis IA
-│   └── websocket_server.py  # Servidor FastAPI
+│   ├── core/                # Configuración y Logging
+│   ├── database/            # Base de datos
+│   ├── domain/              # Lógica de Negocio
+│   │   ├── telemetry/       # Lectura de datos y FFB
+│   │   └── analysis/        # Motor de IA
+│   ├── api/                 # WebSocket y API
+│   └── main.py              # Punto de entrada
 ├── frontend/
 │   ├── index.html           # Dashboard
 │   ├── styles.css           # Estilos

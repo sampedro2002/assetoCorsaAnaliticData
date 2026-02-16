@@ -14,11 +14,12 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.config import SERVER_CONFIG, TELEMETRY_CONFIG
-from backend.telemetry_reader import TelemetryReader
-from backend.database import Database
-from backend.data_analyzer import DataAnalyzer
-from backend.websocket_server import get_app, get_manager
+from backend.core.config import SERVER_CONFIG, TELEMETRY_CONFIG
+from backend.domain.telemetry.reader import TelemetryReader
+from backend.database.database import Database
+from backend.domain.analysis.analyzer import DataAnalyzer
+from backend.domain.telemetry.ffb import FFBAnalyzer
+from backend.api.websocket import get_app, get_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +36,7 @@ class TelemetrySystem:
         self.telemetry_reader = TelemetryReader()
         self.database = Database()
         self.analyzer = DataAnalyzer(self.database)
+        self.ffb_analyzer = FFBAnalyzer()
         self.manager = get_manager()
         
         # State tracking
@@ -193,6 +195,13 @@ class TelemetrySystem:
         # Only process telemetry if car has moved
         if not self.car_has_moved:
             # Still broadcast telemetry for live view, but don't record to database
+            
+            # --- INTEGRACIÓN GRUPO 3 ---
+            # Analizamos FFB en tiempo real incluso si no se mueve
+            ffb_data = self.ffb_analyzer.analyze_realtime(snapshot)
+            snapshot.update(ffb_data)
+            # ---------------------------
+            
             await self.manager.broadcast({
                 'type': 'telemetry',
                 'data': snapshot
@@ -303,6 +312,13 @@ class TelemetrySystem:
                 self.volante_buffer = []
         
         # Broadcast to clients
+        
+        # --- INTEGRACIÓN GRUPO 3 ---
+        # Analizamos FFB en tiempo real
+        ffb_data = self.ffb_analyzer.analyze_realtime(snapshot)
+        snapshot.update(ffb_data)
+        # ---------------------------
+        
         await self.manager.broadcast({
             'type': 'telemetry',
             'data': snapshot

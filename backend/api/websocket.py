@@ -12,18 +12,19 @@ from typing import List, Dict, Any
 from pathlib import Path
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to sys.path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from backend.config import SERVER_CONFIG
-from backend.database import Database
-from backend.data_analyzer import DataAnalyzer
+from backend.core.config import SERVER_CONFIG
+from backend.database.database import Database
+from backend.domain.analysis.analyzer import DataAnalyzer
 
-# Helper to get base path for bundled files
 # Helper to get base path for bundled files
 def get_base_path():
     if hasattr(sys, '_MEIPASS'):
         return Path(sys._MEIPASS)
-    return Path(__file__).parent.parent
+    # Go up 3 levels: backend/api/websocket.py -> backend/api -> backend -> root
+    return Path(__file__).parent.parent.parent
 
 BASE_PATH = get_base_path()
 FRONTEND_PATH = BASE_PATH / "frontend"

@@ -21,8 +21,8 @@ import base64
 from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.database import Database
-from backend.config import ANALYSIS_CONFIG
+from backend.database.database import Database
+from backend.core.config import ANALYSIS_CONFIG
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -275,6 +275,106 @@
                     </div>
                 </div>
             </div>
+            </div>
+
+            <!-- FFB Panel (New Row) -->
+            <div class="card full-width-panel" style="grid-column: span 3; margin-top: 15px; border: 1px solid #00ffff; background: rgba(0,0,0,0.7); border-radius: 10px; padding: 15px;">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #00ffff; font-family: 'Exo 2', sans-serif; letter-spacing: 2px;">FORCE FEEDBACK (G3)</h3>
+                    <div id="physics-alert-box" style="background: #333; padding: 5px 15px; border-radius: 4px; font-weight: bold; color: #888;">
+                        ESTADO: NOMINAL
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                    <!-- FFB Intensity & Stats -->
+                    <div style="display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <label style="color: #aaa; font-size: 0.8em;">TORQUE FFB (Nm)</label>
+                                <span id="ffb-val-text" style="color: white; font-weight: bold;">0.0%</span>
+                            </div>
+                            <div style="height: 25px; background: #222; border-radius: 4px; border: 1px solid #444; position: relative; overflow: hidden;">
+                                <div id="ffb-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00ff88, #ffff00, #ff0000); transition: width 0.05s;"></div>
+                            </div>
+                            <div id="ffb-clipping-msg" style="color: #ff0000; font-size: 0.7em; font-weight: bold; margin-top: 2px; visibility: hidden;"> SATURACIÓN (CLIPPING)</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; margin-top: 10px;">
+                            <h4 style="margin: 0 0 8px 0; color: #00ffff; font-size: 0.9em; border-bottom: 1px solid #444; padding-bottom: 4px;">ESTADÍSTICAS FFB</h4>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="color: #ccc; font-size: 0.8em;">FFB Instantáneo:</span>
+                                <span id="g3-stat-instant" style="color: white; font-weight: bold; font-family: monospace;">0.000</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="color: #ccc; font-size: 0.8em;">Vibración (RMS ~1s):</span>
+                                <span id="g3-stat-rms" style="color: #00ff88; font-weight: bold; font-family: monospace;">0.000</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #ccc; font-size: 0.8em;">Picos (últ. 10s):</span>
+                                <span id="g3-stat-peaks" style="color: #ff8800; font-weight: bold; font-family: monospace;">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vibrations -->
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <label style="font-size: 0.7em; color: #00ffff;">PIANO (KERB)</label>
+                                <span id="val-kerb" style="font-size: 0.7em; color: #fff;">0%</span>
+                            </div>
+                            <div style="height: 8px; background: #222; border-radius: 2px;">
+                                <div id="vib-kerb-bar" style="width: 0%; height: 100%; background: #00ffff; transition: width 0.05s;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <label style="font-size: 0.7em; color: #ff8800;">DERRAPE (SLIP)</label>
+                                <span id="val-slip" style="font-size: 0.7em; color: #fff;">0%</span>
+                            </div>
+                            <div style="height: 8px; background: #222; border-radius: 2px;">
+                                <div id="vib-slip-bar" style="width: 0%; height: 100%; background: #ff8800; transition: width 0.05s;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <label style="font-size: 0.7em; color: #ffff00;">ABS / BLOQUEO</label>
+                                <span id="val-abs" style="font-size: 0.7em; color: #fff;">0%</span>
+                            </div>
+                            <div style="height: 8px; background: #222; border-radius: 2px;">
+                                <div id="vib-abs-bar" style="width: 0%; height: 100%; background: #ffff00; transition: width 0.05s;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Suspension Visual Twin -->
+                    <div style="display: flex; gap: 10px; align-items: flex-end; justify-content: space-around;">
+                        <div style="text-align: center;">
+                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-fl" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            </div>
+                            <span style="font-size: 0.6em; color: #aaa;">FL</span>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-fr" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            </div>
+                            <span style="font-size: 0.6em; color: #aaa;">FR</span>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-rl" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            </div>
+                            <span style="font-size: 0.6em; color: #aaa;">RL</span>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="height: 60px; width: 10px; background: #222; margin: 0 auto; display: flex; align-items: flex-end;">
+                                <div id="g3-susp-rr" style="width: 100%; height: 30%; background: #0088ff; transition: height 0.05s;"></div>
+                            </div>
+                            <span style="font-size: 0.6em; color: #aaa;">RR</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
 

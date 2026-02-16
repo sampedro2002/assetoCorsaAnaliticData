@@ -7,7 +7,7 @@ import logging
 import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from backend.config import DB_CONFIG
+from backend.core.config import DB_CONFIG
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

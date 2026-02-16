@@ -363,6 +363,80 @@ function updateTelemetry(data) {
         }
     }
 
+
+    // =================================================
+    // --- GRUPO 3: ACTUALIZAR PANEL DE FÍSICA (START) ---
+    // =================================================
+    // 1. Force Feedback (Intensidad)
+    let ffbValue = (data.finalFF || 0) * 100;
+    // Actualizar barra y texto
+    const ffbBar = document.getElementById('ffb-bar-fill');
+    const ffbText = document.getElementById('ffb-val-text');
+    if(ffbBar) ffbBar.style.width = Math.min(ffbValue, 100) + '%';
+    if(ffbText) ffbText.innerText = ffbValue.toFixed(1) + '%';
+    // Alerta de Clipping (Si satura la fuerza)
+    const clipMsg = document.getElementById('ffb-clipping-msg');
+    if(clipMsg) {
+        clipMsg.style.visibility = ffbValue > 98 ? 'visible' : 'hidden';
+    }
+    // --- NUEVO: Actualizar Estadísticas FFB ---
+    const instEl = document.getElementById('g3-stat-instant');
+    if(instEl) instEl.textContent = (data.finalFF || 0).toFixed(3);
+    const rmsEl = document.getElementById('g3-stat-rms');
+    if(rmsEl) rmsEl.textContent = (data.rmsValue || 0).toFixed(3);
+    const peaksEl = document.getElementById('g3-stat-peaks');
+    if(peaksEl) peaksEl.textContent = (data.peakCount || 0);
+    // ------------------------------------------
+    // 2. Vibraciones (Picos)
+    const kerbVal = (data.kerbVibration || 0) * 100;
+    const slipVal = (data.slipVibrations || 0) * 100;
+    const absVal = (data.absVibrations || 0) * 100;
+    const kerbBar = document.getElementById('vib-kerb-bar');
+    const slipBar = document.getElementById('vib-slip-bar');
+    const absBar = document.getElementById('vib-abs-bar');
+    // --- NUEVO: Actualizar Textos Numéricos ---
+    const kerbTxt = document.getElementById('val-kerb');
+    const slipTxt = document.getElementById('val-slip');
+    const absTxt = document.getElementById('val-abs');
+    if(kerbBar) kerbBar.style.width = Math.min(kerbVal, 100) + '%';
+    if(kerbTxt) kerbTxt.textContent = Math.round(kerbVal) + '%';
+    if(slipBar) slipBar.style.width = Math.min(slipVal, 100) + '%';
+    if(slipTxt) slipTxt.textContent = Math.round(slipVal) + '%';
+    if(absBar) absBar.style.width = Math.min(absVal, 100) + '%';
+    if(absTxt) absTxt.textContent = Math.round(absVal) + '%';
+    // ------------------------------------------
+    // 3. Eventos Críticos (Alertas de Texto)
+    const alertBox = document.getElementById('physics-alert-box');
+    if (alertBox) {
+        if (slipVal > 50) {
+            alertBox.innerText = " DERRAPE CRÍTICO";
+            alertBox.style.color = "#ff8800";
+            alertBox.style.boxShadow = "0 0 10px #ff8800";
+        } else if (absVal > 50) {
+            alertBox.innerText = " BLOQUEO RUEDAS";
+            alertBox.style.color = "#ffff00";
+            alertBox.style.boxShadow = "0 0 10px #ffff00";
+        } else if (kerbVal > 50) {
+            alertBox.innerText = "〰️ VIBRACIÓN ALTA";
+            alertBox.style.color = "#00ffff";
+            alertBox.style.boxShadow = "none";
+        } else {
+            alertBox.innerText = "ESTADO: NOMINAL";
+            alertBox.style.color = "#888";
+            alertBox.style.boxShadow = "none";
+        }
+    }
+    // 4. Suspensión (Gemelo Digital Visual)
+    // data.suspensionTravel suele ser un array [FL, FR, RL, RR]
+    if (data.suspensionTravel && data.suspensionTravel.length === 4) {
+        // Multiplicamos por factor visual para que se note el movimiento
+        // Usamos la función auxiliar 'updateSusp'
+        updateSusp('g3-susp-fl', data.suspensionTravel[0]);
+        updateSusp('g3-susp-fr', data.suspensionTravel[1]);
+        updateSusp('g3-susp-rl', data.suspensionTravel[2]);
+        updateSusp('g3-susp-rr', data.suspensionTravel[3]);
+    }
+
     previousSteeringAngle = currentSteeringAngle;
     previousTimestamp = currentTimestamp;
 }
@@ -384,6 +458,24 @@ function updateSteeringBar(angle) {
     bar.style.left = `${percent}%`;
 
     valueElement.textContent = `${Math.round(angle * 90)}°`;
+}
+
+function updateSusp(id, value) {
+    const el = document.getElementById(id);
+    if (el) {
+        // Mapeo simple: 
+        // 0.0 -> 10% height
+        // 1.0 -> 90% height
+        const heightPct = 10 + (value * 80);
+        el.style.height = `${heightPct}%`;
+        
+        // Color según intensidad
+        if (value > 0.8 || value < 0.2) {
+             el.style.backgroundColor = '#ff0055'; // Rojo si está muy comprimida/extendida
+        } else {
+             el.style.backgroundColor = '#0088ff';
+        }
+    }
 }
 
 function updateTireTemp(position, temp) {
