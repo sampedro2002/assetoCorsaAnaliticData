@@ -175,6 +175,306 @@ function initInputsChart() {
     });
 }
 
+// Global Chart References
+let racePaceChart = null;
+let speedComparisonChart = null;
+let lastRacesChart = null;
+let lastLapsChart = null;
+
+function initHistoryCharts() {
+    initRacePaceChart();
+    initSpeedComparisonChart();
+    initLastRacesChart();
+    initLastLapsChart();
+}
+
+function initRacePaceChart() {
+    const ctx = document.getElementById('racePaceChart');
+    if (!ctx) return;
+
+    if (racePaceChart) {
+        racePaceChart.destroy();
+        racePaceChart = null;
+    }
+
+    racePaceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Tiempo de Vuelta',
+                data: [],
+                borderColor: '#00ffff',
+                backgroundColor: 'rgba(0, 255, 255, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    title: { display: true, text: 'Tiempo (s)', color: '#888' },
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#888' }
+                },
+                x: {
+                    title: { display: true, text: 'Vuelta', color: '#888' },
+                    grid: { display: false },
+                    ticks: { color: '#888' }
+                }
+            }
+        }
+    });
+}
+
+function initSpeedComparisonChart() {
+    const ctx = document.getElementById('speedComparisonChart');
+    if (!ctx) return;
+
+    if (speedComparisonChart) {
+        speedComparisonChart.destroy();
+        speedComparisonChart = null;
+    }
+
+    speedComparisonChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Mejor',
+                    data: [],
+                    borderColor: '#00ffff',
+                    tension: 0.4
+                },
+                {
+                    label: 'Promedio',
+                    data: [],
+                    borderColor: '#ff0055',
+                    borderDash: [5, 5],
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    display: false
+                },
+                x: {
+                    display: false
+                }
+            },
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+}
+
+function initLastRacesChart() {
+    const ctx = document.getElementById('lastRacesChart');
+    if (!ctx) return;
+
+    if (lastRacesChart) {
+        lastRacesChart.destroy();
+        lastRacesChart = null;
+    }
+
+    lastRacesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#888' }
+                }
+            },
+            scales: {
+                y: {
+                    display: true,
+                    title: { display: true, text: 'Velocidad (km/h)', color: '#888' },
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#888' }
+                },
+                x: {
+                    display: true,
+                    title: { display: true, text: 'Distancia (%)', color: '#888' },
+                    grid: { display: false },
+                    ticks: { display: false } // Hide index numbers
+                }
+            }
+        }
+    });
+}
+
+function initLastLapsChart() {
+    const ctx = document.getElementById('lastLapsChart');
+    if (!ctx) return;
+
+    if (lastLapsChart) {
+        lastLapsChart.destroy();
+        lastLapsChart = null;
+    }
+
+    lastLapsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: { color: '#888' }
+                }
+            },
+            scales: {
+                y: {
+                    display: true,
+                    title: { display: true, text: 'Velocidad (km/h)', color: '#888' },
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#888' }
+                },
+                x: {
+                    display: true,
+                    title: { display: true, text: 'Distancia (%)', color: '#888' },
+                    grid: { display: false },
+                    ticks: { display: false }
+                }
+            }
+        }
+    });
+}
+
+
+// Make available globally
+window.initHistoryCharts = initHistoryCharts;
+window.updateRacePaceChart = updateRacePaceChart;
+window.updateLastRacesChart = updateLastRacesChart;
+window.updateLastLapsChart = updateLastLapsChart;
+
+function updateLastRacesChart(speedComparisonData) {
+    if (!lastRacesChart || !speedComparisonData) return;
+
+    // Reset datasets
+    lastRacesChart.data.datasets = [];
+    lastRacesChart.data.labels = [];
+
+    // Colors for different races
+    const colors = ['#00ffff', '#ff0055', '#00ff88', '#ffff00'];
+
+    if (speedComparisonData.length > 0) {
+        // Use the first dataset to set labels (assuming all are approx same length/normalized)
+        // or just use 0-100%
+        const pointsCount = speedComparisonData[0].data.length;
+        lastRacesChart.data.labels = Array.from({ length: pointsCount }, (_, i) => i);
+    }
+
+    speedComparisonData.forEach((session, index) => {
+        const color = colors[index % colors.length];
+
+        lastRacesChart.data.datasets.push({
+            label: session.label,
+            data: session.data.map(p => p.y), // p.y is speed
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4
+        });
+    });
+
+    lastRacesChart.update();
+}
+
+function updateLastLapsChart(lapsData) {
+    if (!lastLapsChart || !lapsData) return;
+
+    // Reset datasets
+    lastLapsChart.data.datasets = [];
+    lastLapsChart.data.labels = [];
+
+    // Colors for different laps
+    const colors = ['#00ffff', '#ff0055', '#00ff88', '#ffff00'];
+
+    // Check if we have speed comparison data (new format)
+    if (lapsData.speed_comparison && lapsData.speed_comparison.length > 0) {
+        const speedData = lapsData.speed_comparison;
+
+        // Use first dataset for labels
+        const pointsCount = speedData[0].data.length;
+        lastLapsChart.data.labels = Array.from({ length: pointsCount }, (_, i) => i);
+
+        speedData.forEach((lap, index) => {
+            const color = colors[index % colors.length];
+
+            lastLapsChart.data.datasets.push({
+                label: lap.label,
+                data: lap.data.map(p => p.y), // p.y is speed
+                borderColor: color,
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.4
+            });
+        });
+
+        // Update Chart Title or Axis if needed? 
+        // options are already set for Speed in init
+
+    } else if (lapsData.times) {
+        // Fallback to old Bar Chart logic if speed data missing?
+        // But we changed init to Line chart... so we should probably stick to line.
+        // If no telemetry, we can't show speed trace.
+        console.warn("No telemetry data for Last Laps chart");
+    }
+
+    lastLapsChart.update();
+}
+
+function updateRacePaceChart(laps) {
+    if (!racePaceChart || !laps) return;
+
+    // Filter valid laps and get times
+    const validLaps = laps.filter(l => l.lap_time > 0);
+    const labels = validLaps.map(l => l.lap_number + 1);
+    const data = validLaps.map(l => l.lap_time / 1000.0); // Seconds
+
+    racePaceChart.data.labels = labels;
+    racePaceChart.data.datasets[0].data = data;
+
+    // Calculate average for reference line? 
+    // For now just basic plot
+
+    racePaceChart.update();
+}
+
 async function loadChartData(sessionId) {
     try {
         // Get session laps
@@ -240,6 +540,9 @@ async function loadChartData(sessionId) {
 
         // Update inputs chart
         updateInputsChart(lastTelemetry.telemetry);
+
+        // Update Race Pace chart
+        updateRacePaceChart(data.laps);
 
     } catch (error) {
         console.error('Error loading chart data:', error);

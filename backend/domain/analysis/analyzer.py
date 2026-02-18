@@ -919,13 +919,19 @@ class DataAnalyzer:
         Analyze the last 3 races on a specific track.
         Returns data formatted for charts and historical comparison.
         """
-        # Get last 3 sessions
-        sessions = self.db.get_last_n_sessions_by_track(track_name, n=3)
+        # Get last 20 sessions to ensure we find enough valid races (>= 3 laps)
+        raw_sessions = self.db.get_last_n_sessions_by_track(track_name, n=20)
+        
+        # Filter for "Race" sessions (min 3 laps)
+        races = [s for s in raw_sessions if s['total_laps'] >= 3]
+        
+        # Take the last 3 races
+        sessions = races[-3:] if len(races) > 3 else races
         
         if not sessions:
             return {
                 'available': False,
-                'message': "No hay carreras registradas en este circuito."
+                'message': "No hay carreras registradas en este circuito (min. 3 vueltas)."
             }
             
         # Format data for charts
@@ -933,9 +939,10 @@ class DataAnalyzer:
         best_laps = []
         dates = []
         speed_comparison_data = []  # List of {label: str, data: [{x: pos, y: speed}]}
+        race_pace_data = [] # New: Race Pace Comparison
         session_stats = [] # Initialize stats collection
 
-        for session in sessions:
+        for session_idx, session in enumerate(sessions):
             # Format date: DD/MM/YYYY
             date_obj = datetime.strptime(session['start_time'], '%Y-%m-%d %H:%M:%S.%f') if isinstance(session['start_time'], str) else session['start_time']
             date_str = date_obj.strftime('%d/%m/%Y')
@@ -944,10 +951,30 @@ class DataAnalyzer:
             dates.append(date_str)
             best_laps.append(session['best_lap_time'] if session['best_lap_time'] else 0)
 
-            # --- Extended Stats Logic ---
-            # Get session laps to calculate stats
+            # Get session laps to calculate stats and race pace
             session_laps = self.db.get_session_laps(session['id'])
             
+            # --- Race Pace Data Construction ---
+            pace_points = []
+            if session_laps:
+                 # Sort by lap number
+                sorted_laps = sorted(session_laps, key=lambda x: x['lap_number'])
+                for lap in sorted_laps:
+                   # Include all complete laps for pace chart
+                   if lap['lap_time'] > 0: 
+                       pace_points.append({
+                           'x': lap['lap_number'] + 1, # 1-based index for display
+                           'y': lap['lap_time']
+                       })
+            
+            race_pace_data.append({
+                'label': f"Sesión {date_str} (S{session['id']})",
+                'data': pace_points,
+                'session_id': session['id'],
+                'color_idx': session_idx
+            })
+
+            # --- Extended Stats Logic ---
             avg_speed_session = 0
             off_track_count = 0
             valid_laps_count = 0
@@ -974,18 +1001,16 @@ class DataAnalyzer:
 
             # Fetch telemetry for best lap if available
             try:
-                # Find best lap ID - session table doesn't have it, so we need to query laps
-                session_laps = self.db.get_session_laps(session['id'])
                 if session_laps:
                     # Filter for valid laps with time > 0
-                    valid_laps = [l for l in session_laps if l['lap_time'] > 0 and l.get('is_valid', 1)]
+                    valid_laps_for_telem = [l for l in session_laps if l['lap_time'] > 0 and l.get('is_valid', 1)]
                     
-                    if not valid_laps:
+                    if not valid_laps_for_telem:
                         # Fallback to any complete lap
-                        valid_laps = [l for l in session_laps if l['lap_time'] > 0]
+                        valid_laps_for_telem = [l for l in session_laps if l['lap_time'] > 0]
                         
-                    if valid_laps:
-                        best_lap = min(valid_laps, key=lambda x: x['lap_time'])
+                    if valid_laps_for_telem:
+                        best_lap = min(valid_laps_for_telem, key=lambda x: x['lap_time'])
                         telemetry = self.db.get_lap_telemetry(best_lap['id'])
                         
                         if telemetry:
@@ -1001,12 +1026,11 @@ class DataAnalyzer:
                                     'y': point['speed']
                                 })
                             
-                            
                             speed_comparison_data.append({
                                 'label': f"Sesión {date_str} (Best: {best_lap['lap_time']:.3f}s)",
                                 'data': points,
                                 'session_id': session['id'],
-                                'color_idx': len(speed_comparison_data)
+                                'color_idx': session_idx
                             })
             except Exception as e:
                 import logging
@@ -1029,6 +1053,7 @@ class DataAnalyzer:
             'best_laps': best_laps,
             'raw_data': sessions,
             'speed_comparison': speed_comparison_data,
+            'race_pace_data': race_pace_data,
             'session_stats': session_stats,
             'best_session': best_session
         }
@@ -1038,7 +1063,13 @@ class DataAnalyzer:
         Analyze the last 3 laps of a specific session.
         Returns data for consistency analysis.
         """
-        laps = self.db.get_last_n_laps_of_session(session_id, n=3)
+        laps = self.db.get_last_n_laps_of_session(session_id, n=10)
+        
+        # Filter for completed laps (time > 0)
+        laps = [l for l in laps if l['lap_time'] > 0]
+        
+        # Take last 3 completed laps
+        laps = laps[:3]
         
         if not laps:
             return {
@@ -1099,4 +1130,48 @@ class DataAnalyzer:
             'lap_stats': lap_stats,
             'best_lap_id': best_lap_id,
             'best_lap_time': best_lap_time
+        }
+        
+        # Add telemetry for speed comparison
+        speed_data = []
+        for i, lap in enumerate(laps):
+            try:
+                telemetry = self.db.get_lap_telemetry(lap['id'])
+                if telemetry:
+                    # Downsample to ~500 points
+                    target_points = 500
+                    step = max(1, len(telemetry) // target_points)
+                    downsampled_telemetry = telemetry[::step]
+                    
+                    points = []
+                    for idx, point in enumerate(downsampled_telemetry):
+                        points.append({
+                            'x': idx, 
+                            'y': point['speed']
+                        })
+                    
+                    speed_data.append({
+                        'label': f"Vuelta {lap['lap_number']} ({lap['lap_time']:.3f}s)",
+                        'data': points,
+                        'lap_id': lap['id'],
+                        'color_idx': i
+                    })
+            except Exception as e:
+                logger.error(f"Error fetching telemetry for lap {lap['id']}: {e}")
+                
+        return {
+            'available': True,
+            'laps_count': len(laps),
+            'labels': labels,
+            'times': times,
+            'sector1': sector1,
+            'sector2': sector2,
+            'sector3': sector3,
+            'consistency_score': round(consistency_score, 1),
+            'std_dev': round(std_dev, 3),
+            'raw_data': laps,
+            'lap_stats': lap_stats,
+            'best_lap_id': best_lap_id,
+            'best_lap_time': best_lap_time,
+            'speed_comparison': speed_data
         }

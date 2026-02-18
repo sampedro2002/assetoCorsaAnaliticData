@@ -62,6 +62,10 @@ class TelemetrySystem:
         self.previous_angular_velocity: float = 0.0
         self.previous_timestamp: float = 0.0
         
+        # Session tracking for restarts
+        self.last_session_index: int = -1
+        self.current_session_type: str = ""
+        
         # Initialize database schema
         self.database.create_schema()
         logger.info("✓ Telemetry system initialized")
@@ -95,6 +99,23 @@ class TelemetrySystem:
                 
                 # If connected, check race state
                 if self.telemetry_reader.connected:
+                    # Check for session change/restart
+                    snapshot = self.telemetry_reader.get_telemetry_snapshot()
+                    if snapshot:
+                        current_index = snapshot.get('session_index', -1)
+                        current_type = snapshot.get('session_type', '')
+                        
+                        # Detect session change or restart
+                        if self.in_race and (current_index != self.last_session_index or current_type != self.current_session_type):
+                            logger.info(f"🔄 Session change detected! (Index: {self.last_session_index}->{current_index}, Type: {self.current_session_type}->{current_type})")
+                            await self.on_race_end()
+                            # Force immediate start of new session
+                            self.in_race = False
+                        
+                        # Update session trackers
+                        self.last_session_index = current_index
+                        self.current_session_type = current_type
+
                     if self.telemetry_reader.is_in_race():
                         if not self.in_race:
                             await self.on_race_start()
@@ -281,6 +302,11 @@ class TelemetrySystem:
                     
                     # Calculate sample frequency (Hz)
                     sample_frequency = 1.0 / delta_time
+                    
+                    # --- Update Snapshot for Broadcast ---
+                    snapshot['angular_velocity'] = angular_velocity
+                    snapshot['angular_acceleration'] = angular_acceleration
+                    snapshot['sample_frequency'] = sample_frequency
                     
                     # Convert brake and throttle to percentages (AC provides 0-1 range)
                     brake_pct = snapshot['brake'] * 100.0

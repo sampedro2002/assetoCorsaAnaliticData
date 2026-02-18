@@ -11,7 +11,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.core.config import TELEMETRY_CONFIG
+from backend.core.config import TELEMETRY_CONFIG, AC_CONFIG
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -283,7 +283,7 @@ class TelemetryReader:
             logger.info("✓ Connected to Assetto Corsa shared memory")
             return True
         except Exception as e:
-            logger.debug(f"Waiting for Assetto Corsa... ({e})")
+            logger.warning(f"Waiting for Assetto Corsa... ({type(e).__name__}: {e})")
             self.connected = False
             return False
     
@@ -416,8 +416,35 @@ class TelemetryReader:
             'kers_input': physics.kersInput,
             'drs': physics.drs,
             'drs_available': physics.drsAvailable,
-            'drs_enabled': physics.drsEnabled
+            'drs_enabled': physics.drsEnabled,
+            
+            # Expanded Volante/FFB Data (Matching frontend expectations)
+            'finalFF': physics.finalFF,  # Matches app.js 'finalFF'
+            'force_feedback': physics.finalFF, # Keep for backward compatibility
+            
+            'kerbVibration': physics.kerbVibration,
+            'slipVibrations': physics.slipVibrations,
+            'gVibrations': physics.gVibrations,
+            'absVibrations': physics.absVibrations,
+            
+            'suspensionTravel': [physics.suspensionTravel[0], physics.suspensionTravel[1], physics.suspensionTravel[2], physics.suspensionTravel[3]],
+            
+            # Session Index (Critical for restart detection)
+            'session_index': graphics.sessionIndex
         }
+
+        # Calculate steering dynamics if possible (requires previous state)
+        # This would typically be done in the main loop or a wrapper, 
+        # but for snapshot we return raw values. 
+        # The frontend/analyzer can calculate derivatives if needed, 
+        # OR we can add state tracking here.
+        # Let's rely on the consumer (main.py or frontend) for derivatives 
+        # to keep reader stateless/simple, 
+        # UNLESS we add 'self.last_steering' state to reader.
+        
+        # Decision: Add derived metrics in Reader to ensure they are available
+        # We need to modify __init__ and update state.
+
     
     def is_in_race(self) -> bool:
         """Check if currently in an active race"""

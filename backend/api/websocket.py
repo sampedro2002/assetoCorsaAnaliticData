@@ -133,6 +133,12 @@ async def get_charts_js():
     return FileResponse(FRONTEND_PATH / "charts.js")
 
 
+@app.get("/js/history.js")
+async def get_history_js():
+    """Serve history JavaScript file"""
+    return FileResponse(FRONTEND_PATH / "js/history.js")
+
+
 @app.get("/api/pedal-sessions")
 async def list_pedal_sessions():
     """List all available pedal analysis sessions"""
@@ -269,6 +275,17 @@ async def get_history_tracks():
         return {"tracks": tracks}
     except Exception as e:
         logger.error(f"Error fetching tracks: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.get("/api/history/sessions")
+async def get_history_sessions(track: str):
+    """Get all sessions for a specific track"""
+    try:
+        sessions = db.get_history_sessions(track)
+        return {"sessions": sessions}
+    except Exception as e:
+        logger.error(f"Error fetching history sessions for {track}: {e}")
         return {"error": str(e)}, 500
 
 

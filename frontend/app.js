@@ -1199,9 +1199,11 @@ async function selectTrack(trackName) {
     if (lastRacesChartInstance) lastRacesChartInstance.destroy();
     if (lastLapsChartInstance) lastLapsChartInstance.destroy();
     if (speedComparisonChartInstance) speedComparisonChartInstance.destroy();
+    if (racePaceChartInstance) racePaceChartInstance.destroy();
     lastRacesChartInstance = null;
     lastLapsChartInstance = null;
     speedComparisonChartInstance = null;
+    racePaceChartInstance = null;
 
     // 1. Load Last 3 Races Analysis
     try {
@@ -1216,6 +1218,11 @@ async function selectTrack(trackName) {
             // Render Speed Comparison Chart if data exists
             if (data.speed_comparison && data.speed_comparison.length > 0) {
                 renderSpeedComparisonChart(data.speed_comparison);
+            }
+
+            // Render Race Pace Chart if data exists
+            if (data.race_pace_data && data.race_pace_data.length > 0) {
+                renderRacePaceChart(data.race_pace_data);
             }
 
             // If we have sessions, load the Last 3 Laps of the most recent session
@@ -1284,6 +1291,7 @@ function renderHistoryTable(sessions) {
 let lastRacesChartInstance = null;
 let lastLapsChartInstance = null;
 let speedComparisonChartInstance = null;
+let racePaceChartInstance = null;
 
 function renderLastRacesChart(data) {
     const ctx = document.getElementById('lastRacesChart').getContext('2d');
@@ -1298,7 +1306,7 @@ function renderLastRacesChart(data) {
     gradient.addColorStop(1, 'rgba(0, 255, 255, 0.1)');
 
     lastRacesChartInstance = new Chart(ctx, {
-        type: 'bar',
+        type: 'line',
         data: {
             labels: data.dates, // e.g., ["10/10/2023", ...]
             datasets: [{
@@ -1306,9 +1314,13 @@ function renderLastRacesChart(data) {
                 data: data.best_laps,
                 backgroundColor: gradient,
                 borderColor: '#00ffff',
-                borderWidth: 1,
-                borderRadius: 4,
-                barThickness: 40
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 6,
+                pointBackgroundColor: '#000',
+                pointBorderColor: '#00ffff',
+                pointBorderWidth: 2
             }]
         },
         options: {
@@ -1361,12 +1373,13 @@ function renderLastLapsChart(data) {
             datasets: [{
                 label: 'Tiempo de Vuelta',
                 data: data.times,
-                borderColor: '#ff0055',
                 backgroundColor: gradient,
-                tension: 0.3,
+                borderColor: '#ff0055',
+                borderWidth: 3,
+                tension: 0.4,
                 fill: true,
                 pointRadius: 6,
-                pointBackgroundColor: '#fff',
+                pointBackgroundColor: '#000',
                 pointBorderColor: '#ff0055',
                 pointBorderWidth: 2
             }]
@@ -1393,6 +1406,7 @@ function renderLastLapsChart(data) {
             },
             scales: {
                 y: {
+                    beginAtZero: false,
                     grid: { color: 'rgba(255, 255, 255, 0.05)' },
                     ticks: { color: '#888' },
                     title: { display: true, text: 'Segundos', color: '#666' }
@@ -1400,6 +1414,90 @@ function renderLastLapsChart(data) {
                 x: {
                     grid: { display: false },
                     ticks: { color: '#ccc' }
+                }
+            }
+        }
+    });
+}
+
+function renderRacePaceChart(datasets) {
+    const ctx = document.getElementById('racePaceChart').getContext('2d');
+
+    if (racePaceChartInstance) {
+        racePaceChartInstance.destroy();
+    }
+
+    // Color palette for lines (same as speed comparison)
+    const colors = [
+        '#00ffff', // Cyan
+        '#ff0055', // Red
+        '#00ff88', // Green
+        '#ffaa00', // Orange
+        '#aa00ff'  // Purple
+    ];
+
+    const chartDatasets = datasets.map((d, index) => {
+        const color = colors[index % colors.length];
+        return {
+            label: d.label,
+            data: d.data, // [{x: lapNum, y: time}, ...]
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: color,
+            tension: 0.2
+        };
+    });
+
+    racePaceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: chartDatasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#ccc' }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    callbacks: {
+                        title: function (context) {
+                            return `Vuelta ${context[0].label}`;
+                        },
+                        label: function (context) {
+                            return `${context.dataset.label}: ${context.raw.y.toFixed(3)}s`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#888' },
+                    title: { display: true, text: 'Tiempo de Vuelta (s)', color: '#666' }
+                },
+                x: {
+                    type: 'linear',
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: '#ccc',
+                        stepSize: 1,
+                        precision: 0
+                    },
+                    title: { display: true, text: 'Número de Vuelta', color: '#666' }
                 }
             }
         }

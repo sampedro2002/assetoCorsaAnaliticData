@@ -740,6 +740,14 @@
                     </div>
                 </div>
 
+                <!-- Race Pace Comparison Chart (New) -->
+                <div class="panel chart-panel" style="margin-bottom: 20px;">
+                    <h3>Comparación de Ritmo de Carrera</h3>
+                    <div style="height: 400px; position: relative;">
+                        <canvas id="racePaceChart"></canvas>
+                    </div>
+                </div>
+
                 <!-- Analysis Containers (New) -->
                 <div class="charts-grid"
                     style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
@@ -791,7 +799,8 @@
 
     <!-- Load scripts in correct order: dependencies first -->
     <script src="charts.js?v=2.5"></script>
-    <script src="app.js?v=3.29"></script>
+    <script src="js/history.js?v=1.0"></script>
+    <script src="app.js?v=3.30"></script>
 </body>
 
 </html>
