@@ -103,47 +103,78 @@ function connectWebSocket() {
 
 // --- Dashboard Updates ---
 
+let currentTrackName = null;
+
 function updateDashboard(data) {
     if (!data) return;
 
+    // Check for track change and trigger comparison chart update
+    if (data.track_name && data.track_name !== currentTrackName) {
+        currentTrackName = data.track_name;
+        console.log(`Track changed to: ${currentTrackName}`);
+
+        // Trigger chart update if function exists (charts.js loaded)
+        if (typeof window.loadBestRaceComparison === 'function') {
+            window.loadBestRaceComparison(currentTrackName);
+        }
+    }
+
     // 1. Numeric Displays
-    updateText('speedValue', Math.round(data.physics.speedKmh));
-    updateText('gearDisplay', data.physics.gear === 0 ? 'R' : (data.physics.gear === 1 ? 'N' : data.physics.gear - 1));
-    updateText('currentLapTime', data.graphics.currentTime);
-    updateText('lastLapTime', data.graphics.lastTime);
-    updateText('bestLapTime', data.graphics.bestTime);
+    // Data is now flat structure from reader.py
+    updateText('speedValue', Math.round(data.speed));
+    updateText('gearDisplay', data.gear === 0 ? 'R' : (data.gear === 1 ? 'N' : data.gear - 1));
+    updateText('currentLapTime', formatTime(data.current_lap_time)); // reader sends ms
+    updateText('lastLapTime', formatTime(data.last_lap_time));
+    updateText('bestLapTime', formatTime(data.best_lap_time));
 
     // Session Info
-    updateText('sessionMode', translateSessionType(data.graphics.session));
-    // Additional session info
-    // NOTE: The backend might need to send track/car names in the realtime packet 
-    // or we fetch them separately. For now, we assume they might be in static data or ignored.
+    updateText('sessionMode', translateSessionType(data.session_type));
+
+    // Update Track Name display if element exists
+    updateText('trackName', data.track_name);
 
     // 2. Gauges
     if (speedGaugeChart) {
-        const speed = Math.round(data.physics.speedKmh);
-        speedGaugeChart.data.datasets[0].data = [speed, 300 - speed];
+        const speed = Math.round(data.speed);
+        speedGaugeChart.data.datasets[0].data = [speed, 300 - speed]; // Assume 300 max
         speedGaugeChart.update();
     }
 
     // 3. Inputs (Bars)
-    updateBar('throttleBar', data.physics.gas, 'throttleValue', '%');
-    updateBar('brakeBar', data.physics.brake, 'brakeValue', '%');
-    updateBar('clutchBar', data.physics.clutch, null, null);
+    // AC sends 0-1 for inputs
+    updateBar('throttleBar', data.throttle, 'throttleValue', '%');
+    updateBar('brakeBar', data.brake, 'brakeValue', '%');
+    updateBar('clutchBar', data.clutch, null, null);
 
     // Steering
-    const steeringAngle = data.physics.steerAngle;
-    updateSteering(steeringAngle);
+    updateSteering(data.steering);
 
     // 4. G-Force
-    updateText('gforceLat', data.physics.gG[0].toFixed(2));
-    updateText('gforceLong', data.physics.gG[2].toFixed(2));
+    if (data.g_force_lat !== undefined) updateText('gforceLat', data.g_force_lat.toFixed(2));
+    if (data.g_force_long !== undefined) updateText('gforceLong', data.g_force_long.toFixed(2));
 
     // 5. Tires (Temp & Pressure)
-    updateTire(tireElements.fl, data.physics.tyreCoreTemp[0], data.physics.wheelsPressure[0]);
-    updateTire(tireElements.fr, data.physics.tyreCoreTemp[1], data.physics.wheelsPressure[1]);
-    updateTire(tireElements.rl, data.physics.tyreCoreTemp[2], data.physics.wheelsPressure[2]);
-    updateTire(tireElements.rr, data.physics.tyreCoreTemp[3], data.physics.wheelsPressure[3]);
+    // Reader sends individual fields
+    updateTire(tireElements.fl, data.tire_temp_fl, data.tire_pressure_fl);
+    updateTire(tireElements.fr, data.tire_temp_fr, data.tire_pressure_fr);
+    updateTire(tireElements.rl, data.tire_temp_rl, data.tire_pressure_rl);
+    updateTire(tireElements.rr, data.tire_temp_rr, data.tire_pressure_rr);
+
+    // 6. Electronics (New)
+    // Update electronics values if elements exist
+    updateText('tcLevel', data.tc !== undefined ? data.tc : '--');
+    updateText('absLevel', data.abs !== undefined ? data.abs : '--');
+    // Map engine brake to 0-12 or similar if needed, reader sends int
+    updateText('engineBrakeLevel', data.engine_brake !== undefined ? data.engine_brake : '--');
+
+    // ERS/KERS
+    updateText('ersRecovery', data.ers_recovery_level !== undefined ? data.ers_recovery_level : '--');
+    updateText('ersMode', data.ers_power_level !== undefined ? data.ers_power_level : '--');
+
+    // Sample Rate
+    if (data.sample_frequency) {
+        updateText('sampleFreq', Math.round(data.sample_frequency) + ' Hz');
+    }
 }
 
 // --- Helpers ---

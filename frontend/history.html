@@ -5,10 +5,132 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assetto Corsa Telemetry - Historial</title>
+    <meta name="description" content="Historial de carreras y análisis de rendimiento por circuito para Assetto Corsa.">
     <link rel="stylesheet" href="/static/styles.css">
     <link
         href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
+
+    <style>
+        /* ── Annotated Map Section ──────────────────────────────── */
+        .annotated-map-section {
+            width: 100%;
+            margin-top: 28px;
+        }
+
+        .annotated-map-section .section-title {
+            font-family: 'Exo 2', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 14px;
+        }
+
+        /* Session tabs */
+        .session-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .session-tab {
+            padding: 7px 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .session-tab:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(0, 212, 255, 0.08);
+        }
+
+        .session-tab.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+            font-weight: 700;
+        }
+
+        /* Canvas wrapper */
+        .annotated-map-wrapper {
+            position: relative;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        #annotatedMapCanvas {
+            display: block;
+            width: 100%;
+            height: 480px;
+            image-rendering: crisp-edges;
+        }
+
+        .map-legend {
+            display: flex;
+            gap: 18px;
+            padding: 10px 16px;
+            background: rgba(0, 0, 0, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .map-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .map-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .map-session-info {
+            padding: 10px 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+
+        .map-session-stat .label {
+            color: var(--text-muted, #888);
+            margin-right: 4px;
+        }
+
+        .map-session-stat .value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .map-no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+    </style>
 </head>
 
 <body>
@@ -66,6 +188,51 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- ════════════════════════════════════════════════════════
+                             ANNOTATED TRACK MAP
+                             ════════════════════════════════════════════════════════ -->
+                        <div class="panel annotated-map-section" id="annotatedMapPanel" style="display:none;">
+                            <p class="section-title">🗺️ Mapa del Circuito — Análisis por Sección (Mejor Vuelta)</p>
+
+                            <!-- Session selector tabs -->
+                            <div class="session-tabs" id="annotatedMapTabs">
+                                <!-- injected by JS -->
+                            </div>
+
+                            <!-- Canvas + legend -->
+                            <div class="annotated-map-wrapper">
+                                <canvas id="annotatedMapCanvas" width="1200" height="480"></canvas>
+                                <div class="map-legend">
+                                    <div class="map-legend-item">
+                                        <div class="map-legend-dot" style="background:#FF9800;"></div>
+                                        <span>Curva</span>
+                                    </div>
+                                    <div class="map-legend-item">
+                                        <div class="map-legend-dot" style="background:#4CAF50;"></div>
+                                        <span>Recta</span>
+                                    </div>
+                                    <div class="map-legend-item" style="gap:4px;">
+                                        <span style="color:#f00;">■</span><span style="color:#ff0;">■</span><span
+                                            style="color:#0f0;">■</span>
+                                        <span>Lento → Rápido</span>
+                                    </div>
+                                    <span style="margin-left:auto;opacity:.6;">Hover sobre una sección para ver
+                                        detalles</span>
+                                </div>
+
+                                <!-- Current session quick-stats bar -->
+                                <div class="map-session-info" id="mapSessionInfo">
+                                    <!-- injected by JS -->
+                                </div>
+                            </div>
+
+                            <!-- No-data fallback -->
+                            <div class="map-no-data" id="annotatedMapNoData" style="display:none;">
+                                No hay telemetría suficiente para mostrar el mapa anotado.
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -74,6 +241,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="/static/js/common.js"></script>
+    <script src="/static/js/trackConfig.js"></script>
+    <script src="/static/js/annotatedMap.js"></script>
+    <script src="/static/charts.js"></script>
     <script src="/static/js/history.js"></script>
 </body>
 

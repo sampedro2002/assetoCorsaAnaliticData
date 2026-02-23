@@ -1,5 +1,5 @@
 // Dashboard Application Logic
-console.log("🏁 Assetto Corsa Dashboard v3.29 (Normalized Steering Fix) loaded");
+console.log("🏁 Assetto Corsa Dashboard v3.31 (Lap Table + Track Map + Valid Laps Fix) loaded");
 
 // WebSocket connection
 let ws = null;
@@ -683,8 +683,8 @@ async function loadAnalysis(sessionId, analysis) {
                 if (volanteData.stats.max_angular_acceleration !== undefined && volanteData.stats.max_angular_acceleration !== null) {
                     document.getElementById('maxAngularAcceleration').textContent = `${Number(volanteData.stats.max_angular_acceleration).toFixed(1)}°/s²`;
                 }
-                if (volanteData.stats.avg_brake_percentage !== undefined && volanteData.stats.avg_brake_percentage !== null) {
-                    document.getElementById('avgBrakeUsage').textContent = `${Number(volanteData.stats.avg_brake_percentage).toFixed(1)}%`;
+                if (volanteData.stats.avg_brake_usage !== undefined && volanteData.stats.avg_brake_usage !== null) {
+                    document.getElementById('avgBrakeUsage').textContent = `${Number(volanteData.stats.avg_brake_usage).toFixed(1)}%`;
                 }
             }
         }
@@ -698,6 +698,22 @@ async function loadAnalysis(sessionId, analysis) {
     } else {
         // Even if no sections found, verify display shows placeholders
         displaySectionAnalysis([], []);
+    }
+
+    // Load lap comparison table + race pace chart for this session
+    try {
+        const lapTableResp = await fetch(`/api/sessions/${sessionId}/lap-table`);
+        if (lapTableResp.ok) {
+            const lapTableData = await lapTableResp.json();
+            if (lapTableData.lap_comparison_table && lapTableData.lap_comparison_table.length > 0) {
+                renderLapComparisonTable(lapTableData.lap_comparison_table);
+            }
+            if (lapTableData.race_pace_telemetry && lapTableData.race_pace_telemetry.length > 0) {
+                renderRacePaceChart(lapTableData.race_pace_telemetry);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load lap table:', e);
     }
 
     // Explicitly load chart data
@@ -1205,6 +1221,13 @@ async function selectTrack(trackName) {
     speedComparisonChartInstance = null;
     racePaceChartInstance = null;
 
+    // Reset annotated map container
+    const histContainer = document.getElementById('histAllSessionsContainer');
+    if (histContainer) histContainer.innerHTML = '';
+
+    const histPanel = document.getElementById('histAnnotatedMapPanel');
+    if (histPanel) histPanel.style.display = 'none';
+
     // 1. Load Last 3 Races Analysis
     try {
         const response = await fetch(`/api/history/${encodeURIComponent(trackName)}`);
@@ -1220,15 +1243,24 @@ async function selectTrack(trackName) {
                 renderSpeedComparisonChart(data.speed_comparison);
             }
 
-            // Render Race Pace Chart if data exists
-            if (data.race_pace_data && data.race_pace_data.length > 0) {
-                renderRacePaceChart(data.race_pace_data);
+            // Render Race Pace Chart — speed traces per lap of best session
+            if (data.race_pace_telemetry && data.race_pace_telemetry.length > 0) {
+                renderRacePaceChart(data.race_pace_telemetry);
+            } else if (data.best_session_laps && data.best_session_laps.length > 0) {
+                // Fallback: no telemetry, skip (chart needs speed traces)
+                console.warn('Race pace chart: no telemetry traces available');
+            }
+
+            // Render Comparison Tables
+            if (data.lap_comparison_table && data.lap_comparison_table.length > 0) {
+                renderLapComparisonTable(data.lap_comparison_table);
+            }
+            if (data.race_comparison_table && data.race_comparison_table.length > 0) {
+                renderRaceComparisonTable(data.race_comparison_table);
             }
 
             // If we have sessions, load the Last 3 Laps of the most recent session
             if (data.raw_data && data.raw_data.length > 0) {
-                // Determine latest session (assuming response raw_data is chronological)
-                // Main logic: get_last_n_sessions sorted by start_time. Last element is newest.
                 const latestSession = data.raw_data[data.raw_data.length - 1];
                 loadLastLapsAnalysis(latestSession.id);
             }
@@ -1236,7 +1268,170 @@ async function selectTrack(trackName) {
     } catch (e) {
         console.error('Error loading track history:', e);
     }
+
+    // 2. Load Annotated Map (last 3 sessions, best lap each)
+    loadHistAnnotatedMap(trackName);
 }
+
+// ── Global state removed; renderers can be local to the loop if we don't need to update them later ────────────────
+// No global _histAnnotatedRenderer variables needed
+
+async function loadHistAnnotatedMap(trackName) {
+    const panel = document.getElementById('histAnnotatedMapPanel');
+    const container = document.getElementById('histAllSessionsContainer');
+    const noData = document.getElementById('histMapNoData');
+
+    try {
+        const resp = await fetch(`/api/history/${encodeURIComponent(trackName)}/annotated-map`);
+        const data = await resp.json();
+
+        if (!data.available || !data.sessions || data.sessions.length === 0) {
+            if (panel) panel.style.display = 'none';
+            return;
+        }
+
+        if (panel) panel.style.display = 'block';
+        if (noData) noData.style.display = 'none';
+        if (container) container.innerHTML = '';
+
+        // Palette for 20 dots (same as annotatedMap.js)
+        const palette = [
+            '#00d4ff', '#ff4466', '#00ff88', '#ffaa00', '#aa44ff',
+            '#ff6600', '#44aaff', '#ff00cc', '#aaff00', '#ff8844',
+            '#00ffcc', '#ff2244', '#66ff00', '#ffcc00', '#8844ff',
+            '#ff4400', '#00aaff', '#ee00ff', '#ccff00', '#ff6644'
+        ];
+
+        // Format helpers
+        const fmtLap = s => {
+            const m = Math.floor(s / 60);
+            const sec = (s % 60).toFixed(3).padStart(6, '0');
+            return `${m}:${sec}`;
+        };
+
+        // Render each session as a standalone block
+        data.sessions.forEach((session, idx) => {
+            const blockId = `sessionBlock_${idx}`;
+            const canvasId = `histCanvas_${idx}`;
+            const carName = session.car_name || 'Desconocido';
+            const lapTime = fmtLap(session.best_lap_time);
+            const dateStr = session.date;
+
+            // Points: session.points (new) or session.sections (legacy)
+            const points = (session.points && session.points.length ? session.points : session.sections) || [];
+
+            const avgSpd = points.length
+                ? Math.round(points.reduce((a, p) => a + (p.speed || 0), 0) / points.length)
+                : '--';
+
+            // HTML Structure for this session block
+            const blockDiv = document.createElement('div');
+            blockDiv.style.border = '1px solid rgba(0,255,255,0.1)';
+            blockDiv.style.background = 'rgba(0,0,0,0.2)';
+            blockDiv.style.borderRadius = '12px';
+            blockDiv.style.padding = '20px';
+
+            // 1. Header & Stats
+            let html = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px;">
+                    <div>
+                        <h4 style="margin:0; color:#00ffff; font-family:'Exo 2',sans-serif; font-size:1rem;">
+                            Carrera ${idx + 1} <span style="color:#666; font-weight:400;">— ${dateStr}</span>
+                        </h4>
+                        <div style="margin-top:4px; font-size:0.8rem; color:#aaa;">
+                            <span style="color:#eee; font-weight:700;">${lapTime}</span> con <span style="color:#d4d4d4;">${carName}</span>
+                        </div>
+                    </div>
+                    <div style="text-align:right; font-size:0.75rem; color:#888;">
+                        <div>Vel. Media: <span style="color:#ccc;">${avgSpd} km/h</span></div>
+                        <div>Puntos: <span style="color:#ccc;">${points.length}</span></div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                    <!-- LEFT: Canvas -->
+                    <div style="background:rgba(0,0,0,0.3); border-radius:8px; border:1px solid rgba(255,255,255,0.05); overflow:hidden; height:420px;">
+                        <canvas id="${canvasId}" style="width:100%; height:100%; display:block;"></canvas>
+                    </div>
+
+                    <!-- RIGHT: Scrollable Table -->
+                    <div style="height:420px; overflow-y:auto; border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.78rem; font-family:'Exo 2',sans-serif;">
+                            <thead style="position:sticky; top:0; background:#111; z-index:2;">
+                                <tr style="border-bottom:1px solid rgba(0,212,255,0.3);">
+                                    <th style="padding:8px; color:#00d4ff; text-align:center;">#</th>
+                                    <th style="padding:8px; color:#00d4ff; text-align:center;">Vel</th>
+                                    <th style="padding:8px; color:#00d4ff; text-align:center;">Freno</th>
+                                    <th style="padding:8px; color:#00d4ff; text-align:center;">Acel</th>
+                                    <th style="padding:8px; color:#00d4ff; text-align:center;">G-Lat</th>
+                                    <th style="padding:8px; color:#00d4ff; text-align:center;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            // Table rows
+            points.forEach((pt, i) => {
+                const color = palette[i % palette.length];
+                const rowBg = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent';
+
+                // Bars
+                const brakeW = Math.min(pt.brake_pct, 40);
+                const thrW = Math.min(pt.throttle_pct, 40);
+
+                const brakeBar = pt.brake_pct > 1
+                    ? `<div style="height:4px; width:${brakeW}px; background:#ff4466; display:inline-block; margin-right:4px; vertical-align:middle;"></div>`
+                    : '';
+                const thrBar = pt.throttle_pct > 1
+                    ? `<div style="height:4px; width:${thrW}px; background:#00ff88; display:inline-block; margin-right:4px; vertical-align:middle;"></div>`
+                    : '';
+
+                const validIcon = pt.lap_is_valid ? '✅' : '❌';
+
+                html += `
+                    <tr style="background:${rowBg}; border-bottom:1px solid rgba(255,255,255,0.03);">
+                        <td style="padding:6px; text-align:center;">
+                            <span style="display:inline-block; width:18px; height:18px; border-radius:50%; background:${color}; color:#000; font-weight:700; font-size:0.7rem; line-height:18px;">
+                                ${pt.point_num ?? i + 1}
+                            </span>
+                        </td>
+                        <td style="padding:6px; text-align:center; color:#eee;">${Math.round(pt.speed)}</td>
+                        <td style="padding:6px; text-align:left; color:#ccc;">
+                            ${brakeBar}<span style="font-size:0.75rem; font-weight:500;">${Math.round(pt.brake_pct)}%</span>
+                        </td>
+                        <td style="padding:6px; text-align:left; color:#ccc;">
+                            ${thrBar}<span style="font-size:0.75rem; font-weight:500;">${Math.round(pt.throttle_pct)}%</span>
+                        </td>
+                        <td style="padding:6px; text-align:center; color:#ffaa00;">${pt.g_lat}</td>
+                        <td style="padding:6px; text-align:center;">${validIcon}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div></div>`;
+            blockDiv.innerHTML = html;
+
+            // Append the block to container
+            if (container) container.appendChild(blockDiv);
+
+            // Initialize Canvas after a small tick to ensure DOM is ready
+            setTimeout(() => {
+                if (typeof AnnotatedMapRenderer === 'function') {
+                    const renderer = new AnnotatedMapRenderer(canvasId);
+                    // Pass the track name for asset loading
+                    renderer.render(session, data.track_name);
+                } else {
+                    console.warn('AnnotatedMapRenderer missing');
+                }
+            }, 50);
+        });
+
+    } catch (err) {
+        console.error('Error loading hist annotated map:', err);
+    }
+}
+
+
 
 async function loadLastLapsAnalysis(sessionId) {
     try {
@@ -1420,88 +1615,286 @@ function renderLastLapsChart(data) {
     });
 }
 
-function renderRacePaceChart(datasets) {
+function renderRacePaceChart(laps) {
+    // laps = [{label, lap_number, lap_time, is_valid, is_best, data:[{x,y}]}, ...]
     const ctx = document.getElementById('racePaceChart').getContext('2d');
 
     if (racePaceChartInstance) {
         racePaceChartInstance.destroy();
     }
 
-    // Color palette for lines (same as speed comparison)
-    const colors = [
-        '#00ffff', // Cyan
-        '#ff0055', // Red
-        '#00ff88', // Green
-        '#ffaa00', // Orange
-        '#aa00ff'  // Purple
-    ];
+    if (!laps || laps.length === 0) return;
 
-    const chartDatasets = datasets.map((d, index) => {
-        const color = colors[index % colors.length];
+    // ── Filter to EXACTLY 2 laps: best + last ─────────────────────────────
+    const bestLap = laps.find(l => l.is_best)
+        || [...laps].sort((a, b) => (a.lap_time || 999) - (b.lap_time || 999))[0];
+
+    // "Last" = the lap with the highest lap_number that is NOT the best
+    const otherLaps = laps.filter(l => l !== bestLap);
+    const lastLap = otherLaps.length
+        ? otherLaps.reduce((a, b) => ((b.lap_number || 0) > (a.lap_number || 0) ? b : a))
+        : null;
+
+    // Build exactly 2 (or 1 if session has only one lap) datasets
+    const twoLaps = lastLap ? [bestLap, lastLap] : [bestLap];
+
+    const datasets = twoLaps.map((lap, i) => {
+        const isBest = (lap === bestLap);
+        const isValid = lap.is_valid !== false;
+        const color = isBest ? '#00d4ff' : '#ff4466';
+        const emoji = isBest ? '🏆' : '🔄';
         return {
-            label: d.label,
-            data: d.data, // [{x: lapNum, y: time}, ...]
+            label: `${emoji} ${lap.label}`,
+            data: lap.data,           // [{x: normalized_pos, y: speed}]
             borderColor: color,
             backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: color,
-            tension: 0.2
+            borderWidth: isBest ? 3 : 2,
+            borderDash: isValid ? [] : [6, 3],
+            pointRadius: 0,
+            tension: 0.3,
+            order: isBest ? 0 : 1,   // best lap drawn on top
         };
     });
 
     racePaceChartInstance = new Chart(ctx, {
         type: 'line',
-        data: {
-            datasets: chartDatasets
-        },
+        data: { datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
+            animation: false,
+            parsing: false,   // data is already {x, y}
             plugins: {
+                title: {
+                    display: true,
+                    text: twoLaps.length === 2
+                        ? `🏆 Mejor vuelta  vs  🔄 Última vuelta`
+                        : `🏆 Mejor vuelta (única)`,
+                    color: '#00d4ff',
+                    font: { size: 13, family: "'Exo 2', sans-serif", weight: '700' },
+                    padding: { bottom: 10 }
+                },
                 legend: {
                     display: true,
-                    labels: { color: '#ccc' }
+                    position: 'top',
+                    labels: {
+                        color: '#aaa',
+                        font: { size: 11 },
+                        boxWidth: 22,
+                        padding: 14,
+                        usePointStyle: true,
+                        pointStyle: 'line'
+                    }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(0,0,0,0.88)',
                     titleColor: '#fff',
-                    bodyColor: '#fff',
+                    bodyColor: '#ccc',
                     callbacks: {
-                        title: function (context) {
-                            return `Vuelta ${context[0].label}`;
-                        },
-                        label: function (context) {
-                            return `${context.dataset.label}: ${context.raw.y.toFixed(3)}s`;
-                        }
+                        title: items => `Posición: ${(items[0].parsed.x * 100).toFixed(1)}%`,
+                        label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} km/h`
                     }
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: false,
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: '#888' },
-                    title: { display: true, text: 'Tiempo de Vuelta (s)', color: '#666' }
-                },
                 x: {
                     type: 'linear',
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: {
-                        color: '#ccc',
-                        stepSize: 1,
-                        precision: 0
-                    },
-                    title: { display: true, text: 'Número de Vuelta', color: '#666' }
+                    min: 0,
+                    max: 1,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#666', callback: v => `${(v * 100).toFixed(0)}%` },
+                    title: { display: true, text: 'Posición en Pista (%)', color: '#555' }
+                },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#888', callback: v => v + ' km/h' },
+                    title: { display: true, text: 'Velocidad (km/h)', color: '#555' }
                 }
             }
         }
     });
+}
+
+// ─── Lap Comparison Table ────────────────────────────────────────────────────
+function renderLapComparisonTable(laps) {
+    const container = document.getElementById('lapComparisonTableContainer');
+    if (!container || !laps || laps.length === 0) return;
+
+    const fmtTime = s => s != null ? `${Math.floor(s / 60)}:${(s % 60).toFixed(3).padStart(6, '0')}` : '—';
+    const fmtN = (v, dec = 1, unit = '') => (v != null && v !== 0) ? `${Number(v).toFixed(dec)}${unit}` : '—';
+
+    // Color-code temperature: green < 80°C, orange 80-100°C, red > 100°C
+    const tempColor = t => !t ? '#555' : t > 100 ? '#ff0055' : t > 80 ? '#ff8800' : '#00ff88';
+    const wearColor = d => !d ? '#555' : d > 30 ? '#ff0055' : d > 15 ? '#ff8800' : '#00ff88';
+
+    const rows = laps.map(lap => {
+        const best = lap.is_best;
+        const valid = lap.is_valid;
+        const rowBg = best ? 'rgba(0,255,255,0.10)' : (!valid ? 'rgba(255,0,85,0.06)' : 'transparent');
+        const timeTxt = best
+            ? `<span style="color:#00ffff;font-weight:bold;">⭐ ${fmtTime(lap.lap_time)}</span>`
+            : fmtTime(lap.lap_time);
+        const scoreBadge = lap.score != null
+            ? `<span style="background:${best ? '#00ffff22' : '#ffffff11'};color:${best ? '#00ffff' : '#888'};border-radius:4px;padding:2px 6px;font-size:0.8rem;">${lap.score}</span>`
+            : '—';
+        let statusText = '';
+        let statusColor = '';
+
+        if (lap.off_track > 0) {
+            statusText = 'Salida de Pista';
+            statusColor = '#ff0055';
+        } else if (!valid) {
+            statusText = 'Inválida';
+            statusColor = '#ff8800';
+        } else {
+            statusText = 'En Pista';
+            statusColor = '#00ff88';
+        }
+
+        const validBadge = `<span style="color:${statusColor};font-weight:bold;font-size:0.8rem;white-space:nowrap;">${statusText}</span>`;
+
+        const offTrack = lap.off_track > 0
+            ? `<span style="color:#ff0055;font-weight:bold;">${lap.off_track}</span>`
+            : `<span style="color:#555;">0</span>`;
+
+        // Tire temp 4-cell mini-grid
+        const tireGrid = (fl, fr, rl, rr) => `
+            <span style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:0.75rem;">
+                <span style="color:${tempColor(fl)}">${fl != null ? fl + '°' : '—'}</span>
+                <span style="color:${tempColor(fr)}">${fr != null ? fr + '°' : '—'}</span>
+                <span style="color:${tempColor(rl)}">${rl != null ? rl + '°' : '—'}</span>
+                <span style="color:${tempColor(rr)}">${rr != null ? rr + '°' : '—'}</span>
+            </span>`;
+
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);background:${rowBg};transition:background 0.2s;"
+                    onmouseenter="this.style.background='rgba(255,255,255,0.04)'"
+                    onmouseleave="this.style.background='${rowBg}'">
+            <td style="padding:8px 10px;font-weight:bold;color:#ccc;">V${lap.lap_number}</td>
+            <td style="padding:8px 10px;font-family:'Space Grotesk',sans-serif;white-space:nowrap;">${timeTxt}</td>
+            <td style="padding:8px 10px;color:#888;">${fmtTime(lap.sector_1)}</td>
+            <td style="padding:8px 10px;color:#888;">${fmtTime(lap.sector_2)}</td>
+            <td style="padding:8px 10px;color:#888;">${fmtTime(lap.sector_3)}</td>
+            <td style="padding:8px 10px;color:#00ffff;">${fmtN(lap.max_speed, 1, ' km/h')}</td>
+            <td style="padding:8px 10px;color:#aaa;">${fmtN(lap.avg_speed, 1, ' km/h')}</td>
+            <td style="padding:8px 10px;">${fmtN(lap.avg_throttle_pct, 1, '%')}</td>
+            <td style="padding:8px 10px;">${fmtN(lap.avg_brake_pct, 1, '%')}</td>
+            <td style="padding:8px 10px;color:#ff8800;">${lap.hard_brakes ?? '—'}</td>
+            <td style="padding:8px 10px;">${offTrack}</td>
+            <td style="padding:8px 10px;color:#aaa;">${fmtN(lap.max_g_lat, 2, 'g')}</td>
+            <td style="padding:8px 10px;color:#aaa;">${fmtN(lap.max_g_long, 2, 'g')}</td>
+            <td style="padding:8px 10px;">${tireGrid(lap.tire_temp_fl, lap.tire_temp_fr, lap.tire_temp_rl, lap.tire_temp_rr)}</td>
+            <td style="padding:8px 10px;color:${tempColor(lap.avg_tire_temp)};">${fmtN(lap.avg_tire_temp, 1, '°C')}</td>
+            <td style="padding:8px 10px;color:${wearColor(lap.tire_wear_delta)};font-weight:bold;">${fmtN(lap.tire_wear_delta, 1, '°C')}</td>
+            <td style="padding:8px 10px;">${tireGrid(lap.brake_temp_fl, lap.brake_temp_fr, lap.brake_temp_rl, lap.brake_temp_rr)}</td>
+            <td style="padding:8px 10px;color:${tempColor(lap.avg_brake_temp)};">${fmtN(lap.avg_brake_temp, 1, '°C')}</td>
+            <td style="padding:8px 10px;font-size:0.78rem;color:#888;">
+                FL:${lap.tire_pres_fl ?? '—'} FR:${lap.tire_pres_fr ?? '—'}<br>
+                RL:${lap.tire_pres_rl ?? '—'} RR:${lap.tire_pres_rr ?? '—'}
+            </td>
+            <td style="padding:8px 10px;text-align:center;">${scoreBadge}</td>
+            <td style="padding:8px 10px;text-align:center;">${validBadge}</td>
+        </tr>`;
+    }).join('');
+
+    const th = (t, tip = '') => `<th title="${tip}" style="padding:8px 10px;color:#666;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,0.1);cursor:default;">${t}</th>`;
+
+    container.innerHTML = `
+        <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+            <thead><tr>
+                ${th('Vuelta')} ${th('Tiempo')} ${th('S1')} ${th('S2')} ${th('S3')}
+                ${th('Vel. Máx')} ${th('Vel. Media')}
+                ${th('% Aceler.')} ${th('% Freno')}
+                ${th('Fren. Fuertes', 'Frenadas >80%')} ${th('Salidas', 'Salidas de pista')}
+                ${th('G-Lat')} ${th('G-Long')}
+                ${th('Temp. Neumáticos', 'FL/FR arriba, RL/RR abajo (°C)')}
+                ${th('T°Neum. Prom.')}
+                ${th('Desgaste Neum.', 'Delta máx de temp entre ruedas (°C) — mayor = más desgaste')}
+                ${th('Temp. Frenos', 'FL/FR arriba, RL/RR abajo (°C)')}
+                ${th('T°Frenos Prom.')}
+                ${th('Presión Neum.', 'PSI promedio por rueda')}
+                ${th('Puntuación', '0=mejor, 100=peor (tiempo 50%, salidas 20%, desgaste 15%, frenos 15%)')}
+                ${th('Estado', 'Indica si la vuelta fue válida o hubo salida de pista')}
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+        </div>`;
+}
+
+// ─── Race Comparison Table ────────────────────────────────────────────────────
+function renderRaceComparisonTable(sessions) {
+    const container = document.getElementById('raceComparisonTableContainer');
+    if (!container || !sessions || sessions.length === 0) return;
+
+    const fmtTime = s => s != null ? `${Math.floor(s / 60)}:${(s % 60).toFixed(3).padStart(6, '0')}` : '—';
+    const fmtN = (v, dec = 1, unit = '') => (v != null && v !== 0) ? `${Number(v).toFixed(dec)}${unit}` : '—';
+    const tempColor = t => !t ? '#555' : t > 100 ? '#ff0055' : t > 80 ? '#ff8800' : '#00ff88';
+    const wearColor = d => !d ? '#555' : d > 30 ? '#ff0055' : d > 15 ? '#ff8800' : '#00ff88';
+
+    // Sort newest first
+    const sorted = [...sessions].reverse();
+
+    const rows = sorted.map(sess => {
+        const best = sess.is_best;
+        const rowBg = best ? 'rgba(255,0,85,0.10)' : 'transparent';
+        const bestLapTxt = best
+            ? `<span style="color:#ff0055;font-weight:bold;">⭐ ${fmtTime(sess.best_lap)}</span>`
+            : fmtTime(sess.best_lap);
+        const scoreBadge = sess.score != null
+            ? `<span style="background:${best ? '#ff005522' : '#ffffff11'};color:${best ? '#ff0055' : '#888'};border-radius:4px;padding:2px 6px;font-size:0.8rem;">${sess.score}</span>`
+            : '—';
+        const offTrack = sess.off_track > 0
+            ? `<span style="color:#ff0055;font-weight:bold;">${sess.off_track}</span>`
+            : `<span style="color:#555;">0</span>`;
+
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);background:${rowBg};transition:background 0.2s;"
+                    onmouseenter="this.style.background='rgba(255,255,255,0.04)'"
+                    onmouseleave="this.style.background='${rowBg}'">
+            <td style="padding:8px 10px;color:#888;font-size:0.82rem;white-space:nowrap;">${sess.date}</td>
+            <td style="padding:8px 10px;color:#ccc;">${sess.car || '—'}</td>
+            <td style="padding:8px 10px;text-align:center;">${sess.total_laps}</td>
+            <td style="padding:8px 10px;text-align:center;color:#00ff88;">${sess.valid_laps}</td>
+            <td style="padding:8px 10px;white-space:nowrap;">${bestLapTxt}</td>
+            <td style="padding:8px 10px;color:#00ffff;">${fmtN(sess.max_speed, 1, ' km/h')}</td>
+            <td style="padding:8px 10px;color:#aaa;">${fmtN(sess.avg_speed, 1, ' km/h')}</td>
+            <td style="padding:8px 10px;color:#ff8800;">${sess.hard_brakes ?? '—'}</td>
+            <td style="padding:8px 10px;">${offTrack}</td>
+            <td style="padding:8px 10px;color:#aaa;">${fmtN(sess.max_g_lat, 2, 'g')}</td>
+            <td style="padding:8px 10px;color:#aaa;">${fmtN(sess.max_g_long, 2, 'g')}</td>
+            <td style="padding:8px 10px;color:${tempColor(sess.avg_tire_temp)};">${fmtN(sess.avg_tire_temp, 1, '°C')}</td>
+            <td style="padding:8px 10px;color:${wearColor(sess.tire_wear_delta)};font-weight:bold;">${fmtN(sess.tire_wear_delta, 1, '°C')}</td>
+            <td style="padding:8px 10px;color:${tempColor(sess.avg_brake_temp)};">${fmtN(sess.avg_brake_temp, 1, '°C')}</td>
+            <td style="padding:8px 10px;font-size:0.78rem;color:#888;">
+                FL:${sess.avg_tire_pres_fl ?? '—'} FR:${sess.avg_tire_pres_fr ?? '—'}<br>
+                RL:${sess.avg_tire_pres_rl ?? '—'} RR:${sess.avg_tire_pres_rr ?? '—'}
+            </td>
+            <td style="padding:8px 10px;text-align:center;">${scoreBadge}</td>
+        </tr>`;
+    }).join('');
+
+    const th = (t, tip = '') => `<th title="${tip}" style="padding:8px 10px;color:#666;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,0.1);cursor:default;">${t}</th>`;
+
+    container.innerHTML = `
+        <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+            <thead><tr>
+                ${th('Fecha')} ${th('Coche')}
+                ${th('Vueltas')} ${th('Válidas')}
+                ${th('Mejor Vuelta')}
+                ${th('Vel. Máx')} ${th('Vel. Media')}
+                ${th('Fren. Fuertes', 'Frenadas >80%')} ${th('Salidas', 'Salidas de pista')}
+                ${th('G-Lat')} ${th('G-Long')}
+                ${th('T°Neum. Prom.', 'Temperatura promedio de neumáticos')}
+                ${th('Desgaste Neum.', 'Delta máx de temp entre ruedas (°C)')}
+                ${th('T°Frenos Prom.', 'Temperatura promedio de frenos')}
+                ${th('Presión Neum.', 'PSI promedio por rueda')}
+                ${th('Puntuación', '0=mejor, 100=peor')}
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+        </div>`;
 }
 
 function renderSpeedComparisonChart(datasets) {
@@ -1511,52 +1904,61 @@ function renderSpeedComparisonChart(datasets) {
         speedComparisonChartInstance.destroy();
     }
 
-    // Color palette for lines
-    const colors = [
-        '#00ffff', // Cyan
-        '#ff0055', // Red
-        '#00ff88', // Green
-        '#ffaa00', // Orange
-        '#aa00ff'  // Purple
-    ];
+    if (!datasets || datasets.length === 0) return;
 
-    const chartDatasets = datasets.map((d, index) => {
-        const color = colors[index % colors.length];
-        return {
-            label: d.label,
-            data: d.data, // [{x, y}, ...]
-            borderColor: color,
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 0, // Hide points for clean line
-            pointHoverRadius: 4,
-            tension: 0.4
-        };
-    });
+    // ── Keep only 2 lines: best (idx 0) + last (idx last) ──────────────────
+    const two = datasets.length >= 2
+        ? [datasets[0], datasets[datasets.length - 1]]
+        : [datasets[0]];
+
+    // Fixed colors: cyan for best, red-pink for last
+    const fixedColors = ['#00d4ff', '#ff4466'];
+
+    const chartDatasets = two.map((d, i) => ({
+        label: (i === 0 ? '🏆 ' : '🔄 ') + d.label,
+        data: d.data,
+        borderColor: fixedColors[i],
+        backgroundColor: 'transparent',
+        borderWidth: i === 0 ? 3 : 2,
+        borderDash: i === 0 ? [] : [4, 3],
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        tension: 0.4
+    }));
+
 
     speedComparisonChartInstance = new Chart(ctx, {
         type: 'line',
-        data: {
-            datasets: chartDatasets
-        },
+        data: { datasets: chartDatasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
+            animation: false,
+            parsing: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
+                title: {
+                    display: true,
+                    text: '🏆 Mejor sesión  vs  🔄 Sesión más reciente',
+                    color: '#00d4ff',
+                    font: { size: 13, family: "'Exo 2', sans-serif", weight: '700' },
+                    padding: { bottom: 10 }
+                },
                 legend: {
-                    labels: { color: '#ccc' }
+                    display: true,
+                    labels: {
+                        color: '#aaa', font: { size: 11 },
+                        boxWidth: 22, padding: 14,
+                        usePointStyle: true, pointStyle: 'line'
+                    }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.9)',
+                    backgroundColor: 'rgba(0,0,0,0.88)',
                     titleColor: '#fff',
-                    bodyColor: '#fff',
+                    bodyColor: '#ccc',
                     callbacks: {
-                        title: (items) => `Posición: ${items[0].parsed.x}`,
-                        label: (context) => `${context.dataset.label}: ${context.parsed.y} km/h`
+                        title: items => `Posición: ${(items[0].parsed.x * 100).toFixed(1)}%`,
+                        label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} km/h`
                     }
                 }
             },
@@ -1564,20 +1966,21 @@ function renderSpeedComparisonChart(datasets) {
                 x: {
                     type: 'linear',
                     display: true,
-                    title: { display: true, text: 'Progreso Vuelta (Puntos)', color: '#666' },
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: '#888' }
+                    title: { display: true, text: 'Posición en Pista (%)', color: '#666' },
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#888', callback: v => `${(v * 100).toFixed(0)}%` }
                 },
                 y: {
                     display: true,
                     title: { display: true, text: 'Velocidad (km/h)', color: '#666' },
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: '#888' }
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#888', callback: v => v + ' km/h' }
                 }
             }
         }
     });
 }
+
 
 // --- Render Race Analysis Container ---
 function renderRaceAnalysis(data) {

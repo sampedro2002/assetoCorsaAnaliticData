@@ -6,7 +6,7 @@ Cuando crees el ejecutable con PyInstaller, necesitarás incluir los siguientes 
 
 ### Archivos Incluidos Automáticamente por PyInstaller
 
-El archivo `grupo4Analisis.spec` ya está configurado para incluir:
+El archivo `AssettoCorsaAnalytic.spec` ya está configurado para incluir:
 
 - ✅ `frontend/` - Toda la interfaz web (HTML, CSS, JS)
 - ✅ `backend/` - Todo el código Python del backend
@@ -27,7 +27,7 @@ El ejecutable se generará en la carpeta `dist/`.
 ### Estructura Final para Distribución
 
 ```
-AssettoCorsa_Telemetry_Launcher.exe          # Ejecutable principal (Nombre pendiente de cambio si se desea)
+analisisAsseto.exe          # Ejecutable principal
 ```
 
 **Nota**: El ejecutable es completamente autocontenido. PyInstaller empaqueta todo lo necesario dentro del `.exe`.
@@ -43,7 +43,7 @@ El usuario solo necesita:
 
 Al ejecutar por primera vez:
 1. Se iniciará el servidor web en segundo plano
-2. Se abrirá automáticamente el navegador en `http://localhost:8080`
+2. Se abrirá automáticamente el navegador (Chrome, Edge, Firefox o Brave) en modo incógnito en `http://localhost:8080`
 3. Se creará automáticamente la carpeta `data/`
 
 ### Solución de Problemas

@@ -46,5 +46,5 @@
 
 ## 6. Requisitos Técnicos
 - Python 3.10+
-- Librerías Principales: `fastapi`, `uvicorn`, `websockets`, `numpy`.
+- Librerías Principales: `fastapi`, `uvicorn`, `websockets`, `numpy`, `scipy`, `opencv-python`.
 - Assetto Corsa (Steam).

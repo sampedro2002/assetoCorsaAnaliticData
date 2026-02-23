@@ -2,10 +2,21 @@
 Configuration management for Assetto Corsa Telemetry System
 """
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+# 1. Try local .env (priority)
+if os.path.exists('.env'):
+    load_dotenv('.env')
+# 2. Try bundled .env if running as executable
+elif hasattr(sys, '_MEIPASS'):
+    bundle_env = os.path.join(sys._MEIPASS, '.env')
+    if os.path.exists(bundle_env):
+        load_dotenv(bundle_env)
+else:
+    load_dotenv()
 
 # Database Configuration (SQLite)
 DB_CONFIG = {

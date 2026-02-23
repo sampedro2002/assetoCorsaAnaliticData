@@ -318,7 +318,12 @@ function initLastRacesChart() {
                     display: true,
                     title: { display: true, text: 'Distancia (%)', color: '#888' },
                     grid: { display: false },
-                    ticks: { display: false } // Hide index numbers
+                    ticks: {
+                        display: true,
+                        color: '#888',
+                        maxRotation: 0,
+                        autoSkip: true
+                    }
                 }
             }
         }
@@ -365,7 +370,12 @@ function initLastLapsChart() {
                     display: true,
                     title: { display: true, text: 'Distancia (%)', color: '#888' },
                     grid: { display: false },
-                    ticks: { display: false }
+                    ticks: {
+                        display: true,
+                        color: '#888',
+                        maxRotation: 0,
+                        autoSkip: true
+                    }
                 }
             }
         }
@@ -382,29 +392,37 @@ window.updateLastLapsChart = updateLastLapsChart;
 function updateLastRacesChart(speedComparisonData) {
     if (!lastRacesChart || !speedComparisonData) return;
 
+    // Always exactly 2 fixed colors:
+    // index 0 → Best race  (cyan  🏆)
+    // index 1 → Last race  (red   🔄)
+    const FIXED_COLORS = ['#00ffff', '#ff0055'];
+
     // Reset datasets
     lastRacesChart.data.datasets = [];
     lastRacesChart.data.labels = [];
 
-    // Colors for different races
-    const colors = ['#00ffff', '#ff0055', '#00ff88', '#ffff00'];
+    // Use up to 2 entries from the backend (best + last)
+    const twoEntries = speedComparisonData.slice(0, 2);
 
-    if (speedComparisonData.length > 0) {
-        // Use the first dataset to set labels (assuming all are approx same length/normalized)
-        // or just use 0-100%
-        const pointsCount = speedComparisonData[0].data.length;
-        lastRacesChart.data.labels = Array.from({ length: pointsCount }, (_, i) => i);
+    if (twoEntries.length > 0) {
+        const pointsCount = twoEntries[0].data.length;
+        lastRacesChart.data.labels = Array.from({ length: pointsCount }, (_, i) => {
+            const pct = Math.round((i / (pointsCount - 1 || 1)) * 100);
+            return pct + '%';
+        });
     }
 
-    speedComparisonData.forEach((session, index) => {
-        const color = colors[index % colors.length];
+    twoEntries.forEach((session, index) => {
+        const color = FIXED_COLORS[index % FIXED_COLORS.length];
+        const isBest = index === 0;
 
         lastRacesChart.data.datasets.push({
             label: session.label,
             data: session.data.map(p => p.y), // p.y is speed
             borderColor: color,
-            backgroundColor: 'transparent',
-            borderWidth: 2,
+            backgroundColor: isBest ? 'rgba(0,255,255,0.05)' : 'rgba(255,0,85,0.05)',
+            borderWidth: isBest ? 2.5 : 2,
+            borderDash: isBest ? [] : [6, 3],
             pointRadius: 0,
             tension: 0.4
         });
@@ -416,42 +434,43 @@ function updateLastRacesChart(speedComparisonData) {
 function updateLastLapsChart(lapsData) {
     if (!lastLapsChart || !lapsData) return;
 
+    // Always exactly 2 fixed colors:
+    // index 0 → Best lap  (cyan  🏆)
+    // index 1 → Last lap  (red   🔄)
+    const FIXED_COLORS = ['#00ffff', '#ff0055'];
+
     // Reset datasets
     lastLapsChart.data.datasets = [];
     lastLapsChart.data.labels = [];
 
-    // Colors for different laps
-    const colors = ['#00ffff', '#ff0055', '#00ff88', '#ffff00'];
-
-    // Check if we have speed comparison data (new format)
     if (lapsData.speed_comparison && lapsData.speed_comparison.length > 0) {
-        const speedData = lapsData.speed_comparison;
+        // Backend now returns exactly 2 entries: best + last
+        const twoEntries = lapsData.speed_comparison.slice(0, 2);
 
-        // Use first dataset for labels
-        const pointsCount = speedData[0].data.length;
-        lastLapsChart.data.labels = Array.from({ length: pointsCount }, (_, i) => i);
+        const pointsCount = twoEntries[0].data.length;
+        // Generate percentage labels
+        lastLapsChart.data.labels = Array.from({ length: pointsCount }, (_, i) => {
+            const pct = Math.round((i / (pointsCount - 1 || 1)) * 100);
+            return pct + '%';
+        });
 
-        speedData.forEach((lap, index) => {
-            const color = colors[index % colors.length];
+        twoEntries.forEach((lap, index) => {
+            const color = FIXED_COLORS[index % FIXED_COLORS.length];
+            const isBest = index === 0;
 
             lastLapsChart.data.datasets.push({
                 label: lap.label,
-                data: lap.data.map(p => p.y), // p.y is speed
+                data: lap.data.map(p => p.y !== undefined ? p.y : p), // supports {x,y} or plain number
                 borderColor: color,
-                backgroundColor: 'transparent',
-                borderWidth: 2,
+                backgroundColor: isBest ? 'rgba(0,255,255,0.05)' : 'rgba(255,0,85,0.05)',
+                borderWidth: isBest ? 2.5 : 2,
+                borderDash: isBest ? [] : [6, 3],
                 pointRadius: 0,
                 tension: 0.4
             });
         });
 
-        // Update Chart Title or Axis if needed? 
-        // options are already set for Speed in init
-
     } else if (lapsData.times) {
-        // Fallback to old Bar Chart logic if speed data missing?
-        // But we changed init to Line chart... so we should probably stick to line.
-        // If no telemetry, we can't show speed trace.
         console.warn("No telemetry data for Last Laps chart");
     }
 
@@ -495,11 +514,11 @@ async function loadChartData(sessionId) {
             return;
         }
 
-        let validLaps = completeLaps.filter(l => l.is_valid);
+        // SQLite stores is_valid as INTEGER (1 = valid, 0 = invalid)
+        let validLaps = completeLaps.filter(l => l.is_valid !== 0 && l.is_valid !== false);
 
         // Fallback to all complete laps if no valid ones exist
         if (validLaps.length === 0) {
-            console.warn('No valid laps found for charts, using all complete laps');
             validLaps = completeLaps;
         }
 
@@ -523,22 +542,27 @@ async function loadChartData(sessionId) {
             lastTelemetry = bestTelemetry;
         }
 
-        // DEBUG: Log telemetry data structure
-        console.log('📊 Best Telemetry:', {
-            length: bestTelemetry.telemetry?.length || 0,
-            firstPoint: bestTelemetry.telemetry?.[0],
-            hasNormalizedPosition: bestTelemetry.telemetry?.[0]?.normalized_position !== undefined
-        });
-        console.log('📊 Last Telemetry:', {
-            length: lastTelemetry.telemetry?.length || 0,
-            firstPoint: lastTelemetry.telemetry?.[0],
-            hasNormalizedPosition: lastTelemetry.telemetry?.[0]?.normalized_position !== undefined
-        });
+        // Build datasets in the format expected by updateSpeedChart
+        const speedDatasets = [];
+        if (bestTelemetry.telemetry && bestTelemetry.telemetry.length > 0) {
+            speedDatasets.push({
+                label: `Mejor Vuelta (${formatTime(bestLap.lap_time)})`,
+                data: bestTelemetry.telemetry
+            });
+        }
+        if (lastTelemetry.telemetry && lastTelemetry.telemetry.length > 0 && lastLap.id !== bestLap.id) {
+            speedDatasets.push({
+                label: `Última Vuelta (${formatTime(lastLap.lap_time)})`,
+                data: lastTelemetry.telemetry
+            });
+        }
 
         // Update speed chart
-        updateSpeedChart(bestTelemetry.telemetry, lastTelemetry.telemetry);
+        if (speedDatasets.length > 0) {
+            updateSpeedChart(speedDatasets);
+        }
 
-        // Update inputs chart
+        // Update inputs chart (uses last lap telemetry)
         updateInputsChart(lastTelemetry.telemetry);
 
         // Update Race Pace chart
@@ -553,7 +577,7 @@ async function loadChartData(sessionId) {
 window.loadChartData = loadChartData;
 
 // Helper to resample telemetry to a fixed number of points (normalized distance)
-function resampleTelemetry(telemetryData, targetPoints = 100) {
+function resampleTelemetry(telemetryData, targetPoints = 21) {
     if (!telemetryData || telemetryData.length === 0) {
         console.warn('⚠️ Empty telemetry data, returning zeros');
         return Array(targetPoints).fill({ speed: 0, throttle: 0, brake: 0, normalized_position: 0 });
@@ -624,32 +648,46 @@ function resampleTelemetry(telemetryData, targetPoints = 100) {
     return resampled;
 }
 
-function updateSpeedChart(bestData, lastData) {
-    if (!speedChart || !bestData || !lastData) return;
+// function updateSpeedChart(bestData, lastData) -- REPLACED
+// New version accepts array of { label, data: telemetry[] }
+// Always uses exactly 2 fixed colors:
+//   index 0 → Best lap  (cyan  🏆)
+//   index 1 → Last lap  (red   🔄)
+function updateSpeedChart(lapsData) {
+    if (!speedChart || !lapsData || lapsData.length === 0) return;
 
-    // Resample both to 200 points (0% to 100%) for perfect alignment
-    const resolution = 200;
-    const bestResampled = resampleTelemetry(bestData, resolution);
-    const lastResampled = resampleTelemetry(lastData, resolution);
+    // Reset datasets
+    speedChart.data.datasets = [];
+    speedChart.data.labels = [];
 
-    // DEBUG: Log resampled data
-    console.log('📈 Speed Chart Data:', {
-        bestResampledLength: bestResampled.length,
-        lastResampledLength: lastResampled.length,
-        bestSample: bestResampled.slice(0, 5).map(d => d.speed),
-        lastSample: lastResampled.slice(0, 5).map(d => d.speed)
+    const resolution = 21; // 20 Segments (0% to 100%)
+    // Fixed 2-color scheme — same palette as the history charts
+    const FIXED_COLORS = ['#00ffff', '#ff0055'];
+
+    // Generate labels from 0% to 100%
+    const labels = Array.from({ length: resolution }, (_, i) => {
+        const pct = Math.round((i / (resolution - 1)) * 100);
+        return pct + '%';
     });
-
-    // Generate labels (0% to 100%)
-    const labels = bestResampled.map((_, i) => {
-        // Show label every 10%
-        const pct = Math.round((i / resolution) * 100);
-        return pct % 5 === 0 ? pct + '%' : '';
-    });
-
     speedChart.data.labels = labels;
-    speedChart.data.datasets[0].data = bestResampled.map(d => d.speed);
-    speedChart.data.datasets[1].data = lastResampled.map(d => d.speed);
+
+    // Process each lap (max 2)
+    lapsData.slice(0, 2).forEach((lap, index) => {
+        const resampled = resampleTelemetry(lap.data, resolution);
+        const color = FIXED_COLORS[index % FIXED_COLORS.length];
+        const isBest = index === 0;
+
+        speedChart.data.datasets.push({
+            label: lap.label,
+            data: resampled.map(d => d.speed),
+            borderColor: color,
+            backgroundColor: isBest ? 'rgba(0,255,255,0.05)' : 'rgba(255,0,85,0.05)',
+            borderWidth: isBest ? 2.5 : 2,
+            borderDash: isBest ? [] : [6, 3],
+            pointRadius: 0,
+            tension: 0.4,
+        });
+    });
 
     // Update X axis title
     speedChart.options.scales.x.title.text = 'Distancia de Vuelta (%)';
@@ -657,11 +695,119 @@ function updateSpeedChart(bestData, lastData) {
     speedChart.update();
 }
 
+
+async function loadBestRaceComparison(trackName) {
+    if (!trackName) return;
+    console.log(`Loading best race comparison for: ${trackName}`);
+
+    try {
+        // 1. Get all sessions for this track to find the best one
+        // Note: This matches history.js logic
+        const response = await fetch(`/api/history/sessions?track=${encodeURIComponent(trackName)}`);
+        const data = await response.json();
+        const sessions = data.sessions || [];
+
+        if (sessions.length === 0) {
+            console.log("No sessions found for comparison.");
+            return;
+        }
+
+        // 2. Find Best Session (lowest best_lap)
+        // Sessions usually sorted by date, so we sort by best_lap
+        const validSessions = sessions.filter(s => s.best_lap > 0);
+        if (validSessions.length === 0) return;
+
+        validSessions.sort((a, b) => a.best_lap - b.best_lap);
+        const bestSession = validSessions[0];
+
+        // 3. Get Laps for Best Session
+        const lapsResp = await fetch(`/api/sessions/${bestSession.id}/laps`);
+        const lapsData = await lapsResp.json();
+        const laps = lapsData.laps || [];
+
+        // 4. Find Best lap + Last lap (chronological order)
+        laps.sort((a, b) => a.id - b.id);
+
+        const completedLaps = [];
+        let lapCounter = 1;
+        laps.forEach(l => {
+            if (l.lap_time > 0) {
+                l.display_number = lapCounter++;
+                completedLaps.push(l);
+            }
+        });
+
+        if (completedLaps.length === 0) {
+            console.log('No completed laps in best session');
+            return;
+        }
+
+        // Best lap: lowest time among valid ones
+        const validCompleted = completedLaps.filter(l => l.is_valid) || completedLaps;
+        const bestLapEntry = (validCompleted.length ? validCompleted : completedLaps)
+            .reduce((b, l) => l.lap_time < b.lap_time ? l : b);
+
+        // Last lap: last in chronological order
+        const lastLapEntry = completedLaps[completedLaps.length - 1];
+
+        // 5. Fetch Telemetry for exactly 2 laps
+        const datasets = [];
+        const lapsToFetch = [
+            { lap: bestLapEntry, labelPrefix: '🏆 Mejor Vuelta' },
+            ...(lastLapEntry.id !== bestLapEntry.id
+                ? [{ lap: lastLapEntry, labelPrefix: '🔄 Última Vuelta' }]
+                : [])
+        ];
+
+        for (const { lap, labelPrefix } of lapsToFetch) {
+            try {
+                const telResp = await fetch(`/api/laps/${lap.id}/telemetry`);
+                const telData = await telResp.json();
+
+                if (telData.telemetry && telData.telemetry.length > 0) {
+                    datasets.push({
+                        label: `${labelPrefix} V${lap.display_number} (${formatTime(lap.lap_time)})`,
+                        data: telData.telemetry
+                    });
+                }
+            } catch (err) {
+                console.error(`Error loading telemetry for lap ${lap.id}`, err);
+            }
+        }
+
+        // 6. Update Chart with fixed colors
+        if (datasets.length > 0) {
+            if (!speedChart) initSpeedChart();
+            updateSpeedChart(datasets);
+            console.log(`Updated Speed Chart with ${datasets.length} laps (best+last) from Best Session ${bestSession.id}`);
+        }
+
+    } catch (e) {
+        console.error("Error loading best race comparison:", e);
+    }
+}
+
+// Helper needed if not present (formatTime might be in common.js but loadBestRaceComparison needs it)
+// Checking if formatTime is available globally? Yes, usually common.js provides it.
+// BUT loadBestRaceComparison is async and formatTime is sync.
+// We'll rely on global formatTime or add fallback.
+if (typeof formatTime === 'undefined') {
+    window.formatTime = function (seconds) {
+        if (!seconds) return '--:--';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        const ms = Math.floor((seconds * 1000) % 1000);
+        return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+    };
+}
+
+window.loadBestRaceComparison = loadBestRaceComparison;
+
 function updateInputsChart(telemetryData) {
     if (!inputsChart || !telemetryData) return;
 
-    // Resample to 200 points for "Entire Lap" view
-    const resolution = 200;
+    // Resample to 21 points for "Entire Lap" view (consistent with other charts)
+    const resolution = 21;
     const sampled = resampleTelemetry(telemetryData, resolution);
 
     const labels = sampled.map((_, i) => {
@@ -708,3 +854,165 @@ if (!window.chartViewHandlerAttached) {
     };
     window.chartViewHandlerAttached = true;
 }
+
+async function loadHistorySpeedComparison(trackName) {
+    if (!trackName) return;
+    console.log(`Loading history speed comparison for: ${trackName}`);
+
+    const ctx = document.getElementById('speedComparisonChart');
+    if (!ctx) return;
+
+    try {
+        // 1. Get all sessions for this track
+        const response = await fetch(`/api/history/sessions?track=${encodeURIComponent(trackName)}`);
+        const data = await response.json();
+        let sessions = data.sessions || [];
+
+        if (sessions.length === 0) {
+            console.log("No sessions found for comparison.");
+            return;
+        }
+
+
+        // Always add Best Session first
+        sessionsToCompare.push({
+            session: bestSession,
+            label: `🏆 Récord`
+        });
+
+        // Add Last Session if different
+        if (sessions.length > 0) {
+            const lastSession = sessions[0];
+            if (lastSession.id !== bestSession.id) {
+                sessionsToCompare.push({
+                    session: lastSession,
+                    label: `🔄 Última`
+                });
+            } else if (sessions.length > 1) {
+                // If last was best, take 2nd last as "Last" comparison? 
+                // Or just admit last is best. 
+                // User wants "Best" and "Last 2".
+                // If Best == Last, then we have [Best/Last, 2nd Last, 3rd Last] 
+                // But let's stick to "Last 2 Recorded".
+            }
+        }
+
+        // We need "Last 2 Sessions".
+        // Let's take the first 2 from the sorted list (Last, 2nd Last).
+        // Then add Best if it's not in that list.
+
+        const lastTwo = sessions.slice(0, 2);
+        const uniqueSessions = new Map();
+
+        // Add Best first (to ensure specific color/order if needed, or just marking)
+        uniqueSessions.set(bestSession.id, { session: bestSession, label: '🏆 Récord', isBest: true });
+
+        // Add Last 2
+        lastTwo.forEach((s, idx) => {
+            let label = idx === 0 ? '🔄 Última' : '⏮️ Penúltima';
+
+            if (uniqueSessions.has(s.id)) {
+                // Already added (it's the best). Update label to indicate both?
+                // "🏆 Récord (y Última)"
+                const entry = uniqueSessions.get(s.id);
+                entry.label = `🏆 Récord & ${label}`;
+            } else {
+                uniqueSessions.set(s.id, { session: s, label: label, isBest: false });
+            }
+        });
+
+        const finalSessions = Array.from(uniqueSessions.values());
+
+        // 2. Fetch Best Lap Telemetry for each session
+        const datasets = [];
+
+        for (const item of finalSessions) {
+            const session = item.session;
+
+            // Get best lap of this session
+            // We assume backend 'sessions' list might include best_lap_id or we fetch laps.
+            // history/sessions response currently has 'best_lap' time but maybe not ID.
+            // Let's fetch laps for the session.
+
+            try {
+                const lapsResp = await fetch(`/api/sessions/${session.id}/laps`);
+                const lapsData = await lapsResp.json();
+                const laps = lapsData.laps || [];
+
+                // Find best lap
+                const validLaps = laps.filter(l => l.lap_time > 0);
+                if (validLaps.length === 0) continue;
+
+                validLaps.sort((a, b) => a.lap_time - b.lap_time);
+                const bestLap = validLaps[0];
+
+                // Fetch telemetry
+                const telResp = await fetch(`/api/laps/${bestLap.id}/telemetry`);
+                const telData = await telResp.json();
+
+                if (telData.telemetry && telData.telemetry.length > 0) {
+                    datasets.push({
+                        label: `${item.label} (${formatTime(bestLap.lap_time)})`,
+                        data: telData.telemetry,
+                        isBest: item.isBest
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching comparison data", err);
+            }
+        }
+
+        // 3. Update speedComparisonChart with datasets
+        if (!speedComparisonChart) initSpeedComparisonChart();
+
+        updateSpeedComparisonChartData(datasets);
+
+    } catch (e) {
+        console.error("Error loading history speed comparison:", e);
+    }
+}
+
+function updateSpeedComparisonChartData(datasets) {
+    if (!speedComparisonChart) return;
+
+    speedComparisonChart.data.datasets = [];
+    speedComparisonChart.data.labels = [];
+
+    const resolution = 200;
+    // Colors: Cyan (Best), Pink (Last), Orange (2nd Last)
+    const COLORS = ['#00ffff', '#ff0055', '#ffaa00'];
+
+    // Generate labels from 0% to 100%
+    const labels = Array.from({ length: resolution + 1 }, (_, i) => {
+        const pct = Math.round((i / resolution) * 100);
+        return pct % 10 === 0 ? pct + '%' : '';
+    });
+    speedComparisonChart.data.labels = labels;
+
+    datasets.forEach((ds, index) => {
+        const resampled = resampleTelemetry(ds.data, resolution);
+        // Use fixed colors based on role if possible, or just index
+        // If we strictly ordered finalSessions: [Best, Last, 2nd Last], we can map indices.
+        // But map order might vary.
+
+        let color = COLORS[index % COLORS.length];
+        if (ds.label.includes('Récord')) color = '#00ffff'; // Cyan
+        else if (ds.label.includes('Última')) color = '#ff0055'; // Pink
+        else if (ds.label.includes('Penúltima')) color = '#ffaa00'; // Orange
+
+        speedComparisonChart.data.datasets.push({
+            label: ds.label,
+            data: resampled.map(d => d.speed),
+            borderColor: color,
+            backgroundColor: color + '10', // 10% opacity
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4
+        });
+    });
+
+    speedComparisonChart.update();
+}
+
+window.loadHistorySpeedComparison = loadHistorySpeedComparison;
+

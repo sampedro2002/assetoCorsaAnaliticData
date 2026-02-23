@@ -108,8 +108,57 @@
 
                     <!-- Track Map -->
                     <div id="trackTab" class="tab-content">
-                        <div class="panel chart-panel">
+                        <div class="panel chart-panel" style="position: relative;">
                             <canvas id="trackMapCanvas"></canvas>
+                            <!-- Section Info Overlay -->
+                            <div id="sectionInfo" class="section-info-overlay hidden">
+                                <h3 id="sectionName">Sección --</h3>
+                                <div class="section-type" id="sectionType">--</div>
+                                <div class="section-stats-grid">
+                                    <div class="stat-item">
+                                        <span class="label">Tiempo:</span>
+                                        <span class="value" id="sectionTime">--</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="label">Vel. Prom:</span>
+                                        <span class="value" id="sectionAvgSpeed">--</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="label">Vel. Max:</span>
+                                        <span class="value" id="sectionMaxSpeed">--</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="label">Vel. Min (Apex):</span>
+                                        <span class="value" id="sectionMinSpeed">--</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="label">Vel. Entrada:</span>
+                                        <span class="value" id="sectionEntrySpeed">--</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="label">Vel. Salida:</span>
+                                        <span class="value" id="sectionExitSpeed">--</span>
+                                    </div>
+                                    <div class="stat-item full-width">
+                                        <span class="label">Frenada Max:</span>
+                                        <div class="bar-container small">
+                                            <div id="sectionBrakeBar" class="bar brake-bar" style="width: 0%"></div>
+                                        </div>
+                                        <span class="value" id="sectionMaxBrake">--%</span>
+                                    </div>
+                                    <div class="stat-item full-width">
+                                        <span class="label">Acelerador a fondo:</span>
+                                        <div class="bar-container small">
+                                            <div id="sectionThrottleBar" class="bar throttle-bar" style="width: 0%">
+                                            </div>
+                                        </div>
+                                        <span class="value" id="sectionFullThrottle">--%</span>
+                                    </div>
+                                </div>
+                                <div id="sectionRecordInfo" class="section-record-info">
+                                    <!-- Dynamic -->
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -120,7 +169,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="/static/js/common.js"></script>
+    <script src="/static/js/trackConfig.js"></script>
     <script src="/static/charts.js"></script>
+    <script src="/static/trackmap.js"></script>
     <script src="/static/js/analysis.js"></script>
 </body>
 

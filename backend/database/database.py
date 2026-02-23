@@ -396,6 +396,30 @@ class Database:
         finally:
             cursor.close()
             self.return_connection(conn)
+
+    def get_lap_volante_data(self, lap_id: int) -> List[Dict]:
+        """Get time-series volante data for a specific lap"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    timestamp,
+                    steering_angle,
+                    angular_velocity,
+                    angular_acceleration,
+                    brake_percentage,
+                    throttle_percentage,
+                    force_feedback
+                FROM volante
+                WHERE lap_id = ?
+                ORDER BY timestamp ASC
+            """, (lap_id,))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            cursor.close()
+            self.return_connection(conn)
     
     def save_analysis(self, session_id: int, analysis_type: str, recommendations: dict, 
                      ideal_line_data: dict = None, braking_points: dict = None, 
@@ -453,7 +477,117 @@ class Database:
         finally:
             cursor.close()
             self.return_connection(conn)
-    
+
+    def get_lap_telemetry_stats(self, lap_id: int) -> Dict:
+        """Aggregate telemetry stats for a single lap using SQL (efficient)."""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    MAX(speed)                                              AS max_speed_tel,
+                    AVG(speed)                                              AS avg_speed_tel,
+                    MAX(ABS(g_force_lat))                                   AS max_g_lat,
+                    MAX(ABS(g_force_long))                                  AS max_g_long,
+                    SUM(CASE WHEN brake > 0.8 THEN 1 ELSE 0 END)           AS hard_brakes,
+                    SUM(CASE WHEN n_tires_out > 0 THEN 1 ELSE 0 END)       AS off_track_events,
+                    AVG(brake)                                              AS avg_brake,
+                    AVG(throttle)                                           AS avg_throttle,
+                    MAX(ABS(steering))                                      AS max_steering,
+                    COUNT(*)                                                AS sample_count,
+                    -- Tire temperatures (avg per wheel)
+                    AVG(tire_temp_fl)                                       AS avg_tire_temp_fl,
+                    AVG(tire_temp_fr)                                       AS avg_tire_temp_fr,
+                    AVG(tire_temp_rl)                                       AS avg_tire_temp_rl,
+                    AVG(tire_temp_rr)                                       AS avg_tire_temp_rr,
+                    MAX(tire_temp_fl)                                       AS max_tire_temp_fl,
+                    MAX(tire_temp_fr)                                       AS max_tire_temp_fr,
+                    MAX(tire_temp_rl)                                       AS max_tire_temp_rl,
+                    MAX(tire_temp_rr)                                       AS max_tire_temp_rr,
+                    -- Tire pressure (avg per wheel)
+                    AVG(tire_pressure_fl)                                   AS avg_tire_pres_fl,
+                    AVG(tire_pressure_fr)                                   AS avg_tire_pres_fr,
+                    AVG(tire_pressure_rl)                                   AS avg_tire_pres_rl,
+                    AVG(tire_pressure_rr)                                   AS avg_tire_pres_rr,
+                    -- Brake temperatures (avg per corner)
+                    AVG(brake_temp_fl)                                      AS avg_brake_temp_fl,
+                    AVG(brake_temp_fr)                                      AS avg_brake_temp_fr,
+                    AVG(brake_temp_rl)                                      AS avg_brake_temp_rl,
+                    AVG(brake_temp_rr)                                      AS avg_brake_temp_rr,
+                    MAX(brake_temp_fl)                                      AS max_brake_temp_fl,
+                    MAX(brake_temp_fr)                                      AS max_brake_temp_fr,
+                    MAX(brake_temp_rl)                                      AS max_brake_temp_rl,
+                    MAX(brake_temp_rr)                                      AS max_brake_temp_rr,
+                    -- Tire wear proxy: max temp delta across all 4 wheels at any point
+                    -- (high delta = uneven wear / overheating on one corner)
+                    MAX(
+                        MAX(tire_temp_fl, tire_temp_fr, tire_temp_rl, tire_temp_rr) -
+                        MIN(tire_temp_fl, tire_temp_fr, tire_temp_rl, tire_temp_rr)
+                    )                                                       AS max_tire_temp_delta
+                FROM telemetry
+                WHERE lap_id = ?
+            """, (lap_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else {}
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def get_session_telemetry_stats(self, session_id: int) -> Dict:
+        """Aggregate telemetry stats for an entire session (all laps)."""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    MAX(t.speed)                                                AS max_speed_tel,
+                    AVG(t.speed)                                                AS avg_speed_tel,
+                    MAX(ABS(t.g_force_lat))                                     AS max_g_lat,
+                    MAX(ABS(t.g_force_long))                                    AS max_g_long,
+                    SUM(CASE WHEN t.brake > 0.8 THEN 1 ELSE 0 END)             AS hard_brakes,
+                    SUM(CASE WHEN t.n_tires_out > 0 THEN 1 ELSE 0 END)         AS off_track_events,
+                    AVG(t.brake)                                                AS avg_brake,
+                    AVG(t.throttle)                                             AS avg_throttle,
+                    COUNT(DISTINCT l.id)                                        AS laps_with_telemetry,
+                    -- Tire temperatures
+                    AVG(t.tire_temp_fl)                                         AS avg_tire_temp_fl,
+                    AVG(t.tire_temp_fr)                                         AS avg_tire_temp_fr,
+                    AVG(t.tire_temp_rl)                                         AS avg_tire_temp_rl,
+                    AVG(t.tire_temp_rr)                                         AS avg_tire_temp_rr,
+                    MAX(t.tire_temp_fl)                                         AS max_tire_temp_fl,
+                    MAX(t.tire_temp_fr)                                         AS max_tire_temp_fr,
+                    MAX(t.tire_temp_rl)                                         AS max_tire_temp_rl,
+                    MAX(t.tire_temp_rr)                                         AS max_tire_temp_rr,
+                    -- Tire pressure
+                    AVG(t.tire_pressure_fl)                                     AS avg_tire_pres_fl,
+                    AVG(t.tire_pressure_fr)                                     AS avg_tire_pres_fr,
+                    AVG(t.tire_pressure_rl)                                     AS avg_tire_pres_rl,
+                    AVG(t.tire_pressure_rr)                                     AS avg_tire_pres_rr,
+                    -- Brake temperatures
+                    AVG(t.brake_temp_fl)                                        AS avg_brake_temp_fl,
+                    AVG(t.brake_temp_fr)                                        AS avg_brake_temp_fr,
+                    AVG(t.brake_temp_rl)                                        AS avg_brake_temp_rl,
+                    AVG(t.brake_temp_rr)                                        AS avg_brake_temp_rr,
+                    MAX(t.brake_temp_fl)                                        AS max_brake_temp_fl,
+                    MAX(t.brake_temp_fr)                                        AS max_brake_temp_fr,
+                    MAX(t.brake_temp_rl)                                        AS max_brake_temp_rl,
+                    MAX(t.brake_temp_rr)                                        AS max_brake_temp_rr,
+                    -- Tire wear proxy
+                    MAX(
+                        MAX(t.tire_temp_fl, t.tire_temp_fr, t.tire_temp_rl, t.tire_temp_rr) -
+                        MIN(t.tire_temp_fl, t.tire_temp_fr, t.tire_temp_rl, t.tire_temp_rr)
+                    )                                                           AS max_tire_temp_delta
+                FROM telemetry t
+                JOIN laps l ON t.lap_id = l.id
+                WHERE l.session_id = ?
+            """, (session_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else {}
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+
     def get_lap_telemetry(self, lap_id: int) -> List[Dict]:
         """Get all telemetry data for a lap"""
         conn = self.get_connection()

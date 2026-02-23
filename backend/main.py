@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 import uvicorn
+import subprocess
 from threading import Thread
 
 import sys
@@ -40,6 +41,7 @@ class TelemetrySystem:
         self.ffb_analyzer = FFBAnalyzer()
         self.pedal_analyzer = PedalAnalyzer()
         self.manager = get_manager()
+        self.preferred_browser = "default"  # Added to support GUI selection
         
         # State tracking
         self.current_session_id: Optional[int] = None
@@ -55,8 +57,11 @@ class TelemetrySystem:
         # Sector tracking
         self.last_sector_index: int = -1  # Track which sector we're in
         self.sector_times: Dict[int, float] = {}  # Store sector times for current lap (1, 2, 3)
-        
-        # Volante (steering wheel) tracking
+
+        # Lap validity tracking
+        # AC resets isValidLap to False at the start of each new lap, so we must
+        # track validity ourselves: once False during a lap, it stays False.
+        self.current_lap_valid: bool = True
         self.volante_buffer: List[Dict[str, Any]] = []
         self.previous_steering_angle: float = 0.0
         self.previous_angular_velocity: float = 0.0
@@ -157,8 +162,14 @@ class TelemetrySystem:
             return
         
         # Create session in database with actual session type
+        # Construct full track name with layout if available
+        track = snapshot['track_name']
+        config = snapshot.get('track_config')
+        full_track_name = f"{track}@{config}" if config and config.strip() else track
+
+        # Create session in database with actual session type
         self.current_session_id = self.database.create_session(
-            track_name=snapshot['track_name'],
+            track_name=full_track_name,
             car_name=snapshot['car_name'],
             session_type=snapshot['session_type'],  # Use actual session type from AC
             start_time=datetime.now()
@@ -249,8 +260,13 @@ class TelemetrySystem:
         current_lap = snapshot['completed_laps']
         if current_lap > self.last_completed_lap:
             await self.on_lap_complete(snapshot)
-        
+
         self.last_completed_lap = current_lap
+
+        # Update lap validity: once AC marks it invalid, it stays invalid for this lap.
+        # We check AFTER on_lap_complete so the flag is reset for the new lap.
+        if not snapshot.get('is_valid_lap', True):
+            self.current_lap_valid = False
         
         # Add to buffer for database storage
         if self.current_lap_id:
@@ -294,6 +310,10 @@ class TelemetrySystem:
                 delta_time = current_timestamp - self.previous_timestamp
                 
                 if delta_time > 0:
+                    # Calculate frequency
+                    sample_freq = 1.0 / delta_time
+                    snapshot['sample_frequency'] = sample_freq
+                    
                     # Calculate angular velocity (degrees per second)
                     angular_velocity = (current_steering - self.previous_steering_angle) / delta_time
                     
@@ -401,7 +421,8 @@ class TelemetrySystem:
                             sector_1_time = ?, sector_2_time = ?, sector_3_time = ?
                         WHERE id = ?
                     """, (
-                        lap_time, max_speed, avg_speed, 1 if snapshot['is_valid_lap'] else 0,
+                        lap_time, max_speed, avg_speed,
+                        1 if self.current_lap_valid else 0,  # use tracked validity, not snapshot
                         self.sector_times.get(1), self.sector_times.get(2), self.sector_times.get(3),
                         self.current_lap_id
                     ))
@@ -409,9 +430,12 @@ class TelemetrySystem:
                     cursor.close()
                 finally:
                     self.database.return_connection(conn)
-                
-                logger.info(f"✓ Lap {self.current_lap_number + 1} completed: {lap_time:.3f}s (S1: {self.sector_times.get(1, 0):.3f}s, S2: {self.sector_times.get(2, 0):.3f}s, S3: {self.sector_times.get(3, 0):.3f}s)")
+
+                logger.info(f"✓ Lap {self.current_lap_number + 1} completed: {lap_time:.3f}s valid={self.current_lap_valid}")
         
+        # Reset validity flag for the NEW lap (starts valid until AC says otherwise)
+        self.current_lap_valid = True
+
         # Create new lap for the next one
         self.current_lap_number += 1
         self.current_lap_id = self.database.create_lap(
@@ -438,9 +462,9 @@ class TelemetrySystem:
         await self.manager.broadcast({
             'type': 'lap_complete',
             'data': {
-                'lap_number': self.current_lap_number,  # The lap that was just completed (0-indexed matches AC)
+                'lap_number': self.current_lap_number,
                 'lap_time': snapshot['last_lap_time'] / 1000.0,
-                'is_valid': snapshot['is_valid_lap'],
+                'is_valid': self.current_lap_valid,
                 'best_lap_time': snapshot['best_lap_time'] / 1000.0
             }
         })
@@ -503,6 +527,61 @@ class TelemetrySystem:
         self.current_lap_id = None
         self.current_lap_number = 0
     
+    def open_browser_incognito(self, url: str):
+        """Try to open the browser in incognito mode"""
+        browsers = [
+            # Chrome
+            {"name": "chrome", "args": ["--incognito"], "paths": [
+                os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe")
+            ]},
+            # Brave
+            {"name": "brave", "args": ["--incognito"], "paths": [
+                os.path.expandvars(r"%ProgramFiles%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"),
+                os.path.expandvars(r"%LocalAppData%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe")
+            ]},
+            # Edge
+            {"name": "edge", "args": ["--inprivate"], "paths": [
+                os.path.expandvars(r"%ProgramFiles(x86)%\\Microsoft\Edge\Application\\msedge.exe"),
+                os.path.expandvars(r"%ProgramFiles%\\Microsoft\Edge\Application\\msedge.exe")
+            ]},
+            # Firefox
+            {"name": "firefox", "args": ["--private-window"], "paths": [
+                os.path.expandvars(r"%ProgramFiles%\\Mozilla Firefox\\firefox.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\\Mozilla Firefox\\firefox.exe")
+            ]}
+        ]
+        
+        opened = False
+        
+        # Prioritize preferred browser if it's not 'default'
+        priority_browsers = browsers
+        if self.preferred_browser != "default":
+            # Reorder list to put preferred browser first
+            matches = [b for b in browsers if self.preferred_browser.lower() in b["name"].lower()]
+            others = [b for b in browsers if self.preferred_browser.lower() not in b["name"].lower()]
+            priority_browsers = matches + others
+
+        for browser in priority_browsers:
+            for path in browser["paths"]:
+                if os.path.exists(path):
+                    try:
+                        logger.info(f"🌐 Opening {browser['name']} in incognito mode...")
+                        subprocess.Popen([path] + browser["args"] + [url], 
+                                       stdout=subprocess.DEVNULL, 
+                                       stderr=subprocess.DEVNULL)
+                        opened = True
+                        break
+                    except Exception as e:
+                        logger.debug(f"Could not open {browser['name']} at {path}: {e}")
+            if opened:
+                break
+        
+        if not opened:
+            logger.warning("⚠️ No supported browser found for incognito mode. Using default browser.")
+            webbrowser.open(url)
+
     def run(self):
         """Run the telemetry system"""
         logger.info("🚀 Starting Assetto Corsa Telemetry System")
@@ -520,6 +599,14 @@ class TelemetrySystem:
         
         server_thread = Thread(target=run_server, daemon=True)
         server_thread.start()
+        
+        # Open browser automatically after a short delay to ensure server is starting
+        host = "127.0.0.1" # Using 127.0.0.1 is more reliable than 0.0.0.0 or localhost on some Windows setups
+        url = f"http://{host}:{SERVER_CONFIG['port']}"
+        
+        # Increased delay for portable environments
+        time.sleep(2.5)
+        self.open_browser_incognito(url)
         
         # Run telemetry monitoring
         asyncio.run(self.monitor_and_stream())

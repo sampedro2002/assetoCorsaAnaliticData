@@ -4,15 +4,23 @@ echo  Building Executable
 echo ========================================
 echo.
 
-REM Activate virtual environment
-if not exist "asseto\Scripts\activate.bat" (
-    echo [ERROR] Virtual environment not found
+REM Detect virtual environment
+set VENV_PATH=
+if exist "auto\Scripts\activate.bat" (
+    set VENV_PATH=auto
+) else if exist "asseto\Scripts\activate.bat" (
+    set VENV_PATH=asseto
+)
+
+if "%VENV_PATH%"=="" (
+    echo [ERROR] Virtual environment not found (checked 'auto' and 'asseto'^)
     echo Please run install.bat first
     pause
     exit /b 1
 )
 
-call asseto\Scripts\activate.bat
+echo [VENV] Using virtual environment: %VENV_PATH%
+call %VENV_PATH%\Scripts\activate.bat
 
 REM Install PyInstaller if not already installed
 echo [1/3] Checking PyInstaller...
@@ -29,7 +37,7 @@ if exist "dist" rmdir /s /q dist
 
 REM Build executable
 echo [3/3] Building executable...
-pyinstaller --clean grupo4Analisis.spec
+pyinstaller --clean AssettoCorsaAnalytic.spec
 
 if errorlevel 1 (
     echo.
@@ -40,15 +48,13 @@ if errorlevel 1 (
 
 echo.
 echo ========================================
-echo  BUILD COMPLETED SUCCESSFULLY
 echo ========================================
 echo.
-echo Executable created: dist\AssettoCorsa_Telemetry_Launcher.exe
+echo Executable created: dist\analisisAsseto.exe
 echo.
-echo You can now distribute this .exe file along with:
-echo   - backend/ folder
-echo   - frontend/ folder
-echo   - .env file
-echo   - data/ folder (will be created automatically)
+echo This is a PORTABLE executable with a GUI.
+echo - Choose your Assetto Corsa folder and browser in the launcher.
+echo - No terminal will appear in the background.
 echo.
+pause
 pause

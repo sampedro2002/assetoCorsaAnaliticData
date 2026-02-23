@@ -193,9 +193,7 @@ class PedalAnalyzer:
                     calidad = "EXCELENTE"
                     self.curvas_excelentes += 1
                     self.registrar_alerta("⭐ Curva Excelente", "success")
-                elif self.curva_actual["freno_max"] < 50:
-                    calidad = "BUENA"
-                elif self.curva_actual["freno_max"] > 70 and self.curva_actual["angulo_max"] > 15:
+                else:
                     calidad = "MEJORABLE"
                     self.curvas_mejorables += 1
                 

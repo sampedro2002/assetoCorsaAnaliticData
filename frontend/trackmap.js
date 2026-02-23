@@ -405,6 +405,33 @@ class TrackMapRenderer {
         document.getElementById('sectionMaxSpeed').textContent = `${section.max_speed} km/h`;
         document.getElementById('sectionTime').textContent = `${section.time}s`;
 
+        // New Detailed Metrics
+        if (document.getElementById('sectionMinSpeed')) {
+            document.getElementById('sectionMinSpeed').textContent = `${section.min_speed || '--'} km/h`;
+        }
+        if (document.getElementById('sectionEntrySpeed')) {
+            document.getElementById('sectionEntrySpeed').textContent = `${section.entry_speed || '--'} km/h`;
+        }
+        if (document.getElementById('sectionExitSpeed')) {
+            document.getElementById('sectionExitSpeed').textContent = `${section.exit_speed || '--'} km/h`;
+        }
+
+        // Braking
+        if (document.getElementById('sectionMaxBrake')) {
+            const brake = section.max_brake || 0;
+            document.getElementById('sectionMaxBrake').textContent = `${brake}%`;
+            const bar = document.getElementById('sectionBrakeBar');
+            if (bar) bar.style.width = `${brake}%`;
+        }
+
+        // Throttle
+        if (document.getElementById('sectionFullThrottle')) {
+            const throttle = section.full_throttle_pct || 0;
+            document.getElementById('sectionFullThrottle').textContent = `${throttle}%`;
+            const bar = document.getElementById('sectionThrottleBar');
+            if (bar) bar.style.width = `${throttle}%`;
+        }
+
         // Add record comparison if available
         const record = this.recordsMap[section.section_id];
         let recordInfo = document.getElementById('sectionRecordInfo');

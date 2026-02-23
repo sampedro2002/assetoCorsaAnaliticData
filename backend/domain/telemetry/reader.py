@@ -349,6 +349,7 @@ class TelemetryReader:
             'session': graphics.session,
             'session_type': SESSION_TYPES.get(graphics.session, "Unknown"),
             'track_name': static.track,
+            'track_config': static.trackConfiguration,
             'car_name': static.carModel,
             'completed_laps': graphics.completedLaps,
             'current_lap_time': graphics.iCurrentTime,
@@ -408,8 +409,8 @@ class TelemetryReader:
             # Additional Telemetry (Volante Expanded)
             'force_feedback': physics.finalFF,
             'brake_bias': physics.brakeBias,
-            'tc': physics.tc,
-            'abs': physics.abs,
+            'tc': graphics.TC,  # Use Graphics (Setting) instead of Physics (Intervention)
+            'abs': graphics.ABS, # Use Graphics (Setting) instead of Physics (Intervention)
             'engine_brake': physics.engineBrake,
             'turbo_boost': physics.turboBoost,
             'kers_charge': physics.kersCharge,
@@ -417,6 +418,12 @@ class TelemetryReader:
             'drs': physics.drs,
             'drs_available': physics.drsAvailable,
             'drs_enabled': physics.drsEnabled,
+            
+            # ERS Detailed
+            'ers_recovery_level': physics.ersRecoveryLevel,
+            'ers_power_level': physics.ersPowerLevel,
+            'ers_heat_charging': physics.ersHeatCharging,
+            'ers_is_charging': physics.ersIsCharging,
             
             # Expanded Volante/FFB Data (Matching frontend expectations)
             'finalFF': physics.finalFF,  # Matches app.js 'finalFF'
